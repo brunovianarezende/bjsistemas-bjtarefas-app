@@ -1,4 +1,4 @@
-package nom.bruno.tasksapp.model;
+package nom.bruno.tasksapp.models;
 
 public class Task {
     private int id;
