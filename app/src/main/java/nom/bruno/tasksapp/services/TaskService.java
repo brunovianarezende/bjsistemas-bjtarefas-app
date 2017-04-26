@@ -4,6 +4,7 @@ import java.util.List;
 
 import io.reactivex.Observable;
 import io.reactivex.schedulers.Schedulers;
+import nom.bruno.tasksapp.Constants;
 import nom.bruno.tasksapp.models.Result;
 import nom.bruno.tasksapp.models.Task;
 import retrofit2.Retrofit;
@@ -12,14 +13,13 @@ import retrofit2.converter.gson.GsonConverterFactory;
 import retrofit2.http.GET;
 
 public class TaskService {
-    public static final String BASE_URL = "http://10.0.2.2:8000/";
     private TaskApi mTaskApi;
 
     public TaskService() {
         RxJava2CallAdapterFactory rxAdapter = RxJava2CallAdapterFactory.createWithScheduler(Schedulers.io());
 
         Retrofit retrofit = new Retrofit.Builder()
-                .baseUrl(BASE_URL)
+                .baseUrl(Constants.SERVICE_URL)
                 .addConverterFactory(GsonConverterFactory.create())
                 .addCallAdapterFactory(rxAdapter)
                 .build();
