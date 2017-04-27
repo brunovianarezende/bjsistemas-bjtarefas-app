@@ -1,22 +1,16 @@
 package nom.bruno.tasksapp;
 
-import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.DividerItemDecoration;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 
-import org.reactivestreams.Subscriber;
-import org.reactivestreams.Subscription;
-
-import java.util.ArrayList;
 import java.util.List;
 
-import io.reactivex.Observable;
 import io.reactivex.android.schedulers.AndroidSchedulers;
 import io.reactivex.annotations.NonNull;
 import io.reactivex.functions.Consumer;
-import nom.bruno.tasksapp.models.Result;
 import nom.bruno.tasksapp.models.Task;
 import nom.bruno.tasksapp.services.TaskService;
 import nom.bruno.tasksapp.view.adapters.TasksAdapter;
@@ -37,12 +31,12 @@ public class MainActivity extends AppCompatActivity {
         rvTasks.setAdapter(adapter);
         rvTasks.setLayoutManager(layoutManager);
 
-        Observable<Result<List<Task>>> call = new TaskService().getTaskApi().getTasks();
-        call.observeOn(AndroidSchedulers.mainThread())
-                .subscribe(new Consumer<Result<List<Task>>>() {
+        new TaskService().getTasks()
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(new Consumer<List<Task>>() {
                     @Override
-                    public void accept(@NonNull Result<List<Task>> result) throws Exception {
-                        adapter.setTasks(result.getData());
+                    public void accept(@NonNull List<Task> result) throws Exception {
+                        adapter.setTasks(result);
                     }
                 });
     }
