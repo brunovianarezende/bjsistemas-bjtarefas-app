@@ -21,7 +21,7 @@
         app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         tools:layout_constraintBottom_creator="1"
-        app:layout_constraintRight_toLeftOf="@+id/imageButton2"
+        app:layout_constraintRight_toLeftOf="@+id/item_task_delete"
         android:layout_marginRight="8dp"
         app:layout_constraintHorizontal_bias="1.0" />
 
@@ -39,16 +39,16 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintHorizontal_bias="0.0"
         app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toLeftOf="@+id/item_task_delete"
         app:layout_constraintTop_toBottomOf="@+id/item_task_title"
+        app:layout_constraintVertical_bias="0.0"
         tools:layout_conversion_absoluteHeight="26dp"
         tools:layout_conversion_absoluteWidth="264dp"
         tools:layout_conversion_absoluteX="0dp"
-        tools:layout_conversion_absoluteY="31dp"
-        app:layout_constraintVertical_bias="0.0"
-        app:layout_constraintRight_toLeftOf="@+id/imageButton2" />
+        tools:layout_conversion_absoluteY="31dp" />
 
     <ImageButton
-        android:id="@+id/imageButton2"
+        android:id="@+id/item_task_delete"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginBottom="8dp"

@@ -5,7 +5,6 @@ import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.DividerItemDecoration;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
-import android.view.View;
 
 import java.util.List;
 
@@ -43,12 +42,20 @@ public class MainActivity extends AppCompatActivity {
 
         adapter.onClickView()
                 .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(new Consumer<View>() {
+                .subscribe(new Consumer<TasksAdapter.ViewHolder>() {
                     @Override
-                    public void accept(@NonNull View taskView) throws Exception {
-                        Task task = adapter.getTask(rvTasks.getChildAdapterPosition(taskView));
-                        task.setTitle("bla");
-                        adapter.notifyDataSetChanged();
+                    public void accept(@NonNull TasksAdapter.ViewHolder viewHolder) throws Exception {
+                        adapter.focusOn(viewHolder);
+                    }
+                });
+
+        adapter.onDeleteSingle()
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(new Consumer<TasksAdapter.ViewHolder>() {
+                    @Override
+                    public void accept(@NonNull TasksAdapter.ViewHolder viewHolder) throws Exception {
+                        int position = rvTasks.getChildAdapterPosition(viewHolder.itemView);
+                        adapter.deleteTask(viewHolder, position);
                     }
                 });
 
