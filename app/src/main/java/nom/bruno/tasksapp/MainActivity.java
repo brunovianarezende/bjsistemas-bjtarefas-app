@@ -20,6 +20,8 @@ import nom.bruno.tasksapp.services.TaskService;
 import nom.bruno.tasksapp.view.adapters.TasksAdapter;
 
 public class MainActivity extends AppCompatActivity {
+    private TasksAdapter mAdapter = null;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -31,37 +33,41 @@ public class MainActivity extends AppCompatActivity {
         DividerItemDecoration dividerItemDecoration = new DividerItemDecoration(rvTasks.getContext(),
                 layoutManager.getOrientation());
         rvTasks.addItemDecoration(dividerItemDecoration);
-        final TasksAdapter adapter = new TasksAdapter(this);
-        rvTasks.setAdapter(adapter);
+        mAdapter = new TasksAdapter();
+        mAdapter.bindRecyclerView(rvTasks);
         rvTasks.setLayoutManager(layoutManager);
 
         final TaskService ts = new TaskService();
 
-        ts.getTasks()
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(new Consumer<List<Task>>() {
-                    @Override
-                    public void accept(@NonNull List<Task> result) throws Exception {
-                        adapter.setTasks(result);
-                    }
-                });
+        if (savedInstanceState == null) {
+            ts.getTasks()
+                    .observeOn(AndroidSchedulers.mainThread())
+                    .subscribe(new Consumer<List<Task>>() {
+                        @Override
+                        public void accept(@NonNull List<Task> result) throws Exception {
+                            mAdapter.setTasks(result);
+                        }
+                    });
+        } else {
+            mAdapter.deserializeState(savedInstanceState.getString(mAdapter.getClass().getCanonicalName()));
+        }
 
-        adapter.onClickView()
+        mAdapter.onClickView()
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe(new Consumer<TasksAdapter.ViewHolder>() {
                     @Override
                     public void accept(@NonNull TasksAdapter.ViewHolder viewHolder) throws Exception {
-                        adapter.focusOn(viewHolder);
+                        mAdapter.focusOn(viewHolder);
                     }
                 });
 
-        adapter.onDeleteSingle()
+        mAdapter.onDeleteSingle()
                 .observeOn(Schedulers.io())
                 .flatMap(new Function<TasksAdapter.ViewHolder, Observable<MyVoid>>() {
                     @Override
                     public Observable<MyVoid> apply(@NonNull TasksAdapter.ViewHolder viewHolder) throws Exception {
                         int position = rvTasks.getChildAdapterPosition(viewHolder.itemView);
-                        Task task = adapter.getTask(position);
+                        Task task = mAdapter.getTask(position);
                         return ts.deleteTask(task.getId());
                     }
                 })
@@ -75,9 +81,15 @@ public class MainActivity extends AppCompatActivity {
                 .subscribe(new Consumer<List<Task>>() {
                     @Override
                     public void accept(@NonNull List<Task> tasks) throws Exception {
-                        adapter.setTasks(tasks);
+                        mAdapter.setTasks(tasks);
                     }
                 });
 
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putString(mAdapter.getClass().getCanonicalName(), mAdapter.serializeState());
     }
 }

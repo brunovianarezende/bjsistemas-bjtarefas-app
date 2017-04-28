@@ -8,9 +8,10 @@ import android.view.ViewGroup;
 import android.widget.ImageButton;
 import android.widget.TextView;
 
+import com.google.gson.Gson;
 import com.jakewharton.rxbinding2.view.RxView;
 
-import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import io.reactivex.Observable;
@@ -21,13 +22,12 @@ import nom.bruno.tasksapp.R;
 import nom.bruno.tasksapp.models.Task;
 
 public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> {
-    private List<Task> mTasks = new ArrayList<>();
+    private AdapterState mState = new AdapterState();
+
     private PublishSubject<TasksAdapter.ViewHolder> clickSubject = PublishSubject.create();
     private PublishSubject<TasksAdapter.ViewHolder> deleteSubject = PublishSubject.create();
-    private ViewHolder currentlyFocused = null;
 
-    public TasksAdapter(Context context) {
-    }
+    private RecyclerView mRecyclerView;
 
     public Observable<TasksAdapter.ViewHolder> onClickView() {
         return clickSubject;
@@ -38,26 +38,37 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
     }
 
     private void clearCurrentFocus() {
+        ViewHolder currentlyFocused = getCurrentlyFocused();
         if (currentlyFocused != null) {
             currentlyFocused.hideDeleteButton();
-            currentlyFocused = null;
+        }
+        mState.setFocusedTask(null);
+    }
+
+    private ViewHolder getCurrentlyFocused() {
+        if (mState.hasFocus()) {
+            return (ViewHolder) mRecyclerView.getChildViewHolder(mRecyclerView.getChildAt(mState.getFocusedTaskPosition()));
+        } else {
+            return null;
         }
     }
 
+
     public void setTasks(List<Task> tasks) {
-        this.mTasks = tasks;
-        clearCurrentFocus();
+        this.mState.setTasks(tasks);
         notifyDataSetChanged();
     }
 
     public void focusOn(ViewHolder viewHolder) {
-        if (currentlyFocused == null) {
+        Task relatedTask = mState.getTask(viewHolder.getAdapterPosition());
+
+        if (!mState.hasFocus()) {
             viewHolder.showDeleteButton();
-            currentlyFocused = viewHolder;
-        } else if (currentlyFocused != viewHolder) {
+            mState.setFocusedTask(relatedTask);
+        } else if (!mState.isFocused(relatedTask)) {
             clearCurrentFocus();
             viewHolder.showDeleteButton();
-            currentlyFocused = viewHolder;
+            mState.setFocusedTask(relatedTask);
         } else {
             clearCurrentFocus();
         }
@@ -96,19 +107,38 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
 
     @Override
     public void onBindViewHolder(ViewHolder holder, int position) {
-        Task task = mTasks.get(position);
+        Task task = mState.getTask(position);
 
         holder.mTitleTextView.setText(task.getTitle());
         holder.mDescriptionTextView.setText(task.getDescription());
+        if (mState.isFocused(task)) {
+            holder.showDeleteButton();
+        }
     }
 
     @Override
     public int getItemCount() {
-        return mTasks.size();
+        return mState.getNumTasks();
     }
 
     public Task getTask(int position) {
-        return mTasks.get(position);
+        return mState.getTask(position);
+    }
+
+    public String serializeState() {
+        Gson gson = new Gson();
+        return gson.toJson(mState);
+    }
+
+    public void deserializeState(String serialized) {
+        Gson gson = new Gson();
+        mState = gson.fromJson(serialized, AdapterState.class);
+        notifyDataSetChanged();
+    }
+
+    public void bindRecyclerView(RecyclerView recyclerView) {
+        recyclerView.setAdapter(this);
+        this.mRecyclerView = recyclerView;
     }
 
     public static class ViewHolder extends RecyclerView.ViewHolder {
@@ -122,7 +152,6 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
             mTitleTextView = (TextView) itemView.findViewById(R.id.item_task_title);
             mDescriptionTextView = (TextView) itemView.findViewById(R.id.item_task_description);
             mDeleteButton = (ImageButton) itemView.findViewById(R.id.item_task_delete);
-            hideDeleteButton();
         }
 
         private void hideDeleteButton() {
@@ -133,5 +162,53 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
             mDeleteButton.setVisibility(View.VISIBLE);
         }
 
+    }
+
+    private static class AdapterState {
+        private List<Task> mTasks = Collections.emptyList();
+        private int mFocusedTaskId = -1;
+        private int mFocusedTaskPosition = -1;
+
+        boolean hasFocus() {
+            return mFocusedTaskId != -1;
+        }
+
+        void setFocusedTask(Task taskToFocus) {
+            if (taskToFocus != null) {
+                mFocusedTaskId = taskToFocus.getId();
+                for (int i = 0; i < mTasks.size(); i++) {
+                    Task task = mTasks.get(i);
+                    if (taskToFocus.getId() == task.getId()) {
+                        mFocusedTaskPosition = i;
+                        break;
+                    }
+                }
+            } else {
+                mFocusedTaskId = -1;
+                mFocusedTaskPosition = -1;
+            }
+        }
+
+        boolean isFocused(Task task) {
+            return task.getId() == mFocusedTaskId;
+        }
+
+        Task getTask(int position) {
+            return mTasks.get(position);
+        }
+
+        int getFocusedTaskPosition() {
+            return mFocusedTaskPosition;
+        }
+
+        int getNumTasks() {
+            return mTasks.size();
+        }
+
+        void setTasks(List<Task> tasks) {
+            mTasks = tasks;
+            mFocusedTaskId = -1;
+            mFocusedTaskPosition = -1;
+        }
     }
 }
