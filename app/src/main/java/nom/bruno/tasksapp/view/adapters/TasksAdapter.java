@@ -21,14 +21,12 @@ import nom.bruno.tasksapp.R;
 import nom.bruno.tasksapp.models.Task;
 
 public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> {
-    private Context mContext;
     private List<Task> mTasks = new ArrayList<>();
     private PublishSubject<TasksAdapter.ViewHolder> clickSubject = PublishSubject.create();
     private PublishSubject<TasksAdapter.ViewHolder> deleteSubject = PublishSubject.create();
     private ViewHolder currentlyFocused = null;
 
     public TasksAdapter(Context context) {
-        this.mContext = context;
     }
 
     public Observable<TasksAdapter.ViewHolder> onClickView() {
@@ -39,8 +37,16 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
         return deleteSubject;
     }
 
+    private void clearCurrentFocus() {
+        if (currentlyFocused != null) {
+            currentlyFocused.hideDeleteButton();
+            currentlyFocused = null;
+        }
+    }
+
     public void setTasks(List<Task> tasks) {
         this.mTasks = tasks;
+        clearCurrentFocus();
         notifyDataSetChanged();
     }
 
@@ -49,13 +55,11 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
             viewHolder.showDeleteButton();
             currentlyFocused = viewHolder;
         } else if (currentlyFocused != viewHolder) {
-            currentlyFocused.hideDeleteButton();
+            clearCurrentFocus();
             viewHolder.showDeleteButton();
             currentlyFocused = viewHolder;
-            currentlyFocused.hideDeleteButton();
         } else {
-            currentlyFocused.hideDeleteButton();
-            currentlyFocused = null;
+            clearCurrentFocus();
         }
     }
 
@@ -107,19 +111,12 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
         return mTasks.get(position);
     }
 
-    public void deleteTask(ViewHolder viewHolder, int position) {
-        viewHolder.hideDeleteButton();
-        mTasks.remove(position);
-        notifyDataSetChanged();
-    }
-
     public static class ViewHolder extends RecyclerView.ViewHolder {
-        public final TextView mTitleTextView;
-        public final TextView mDescriptionTextView;
-        public final ImageButton mDeleteButton;
-        private boolean showingDeleteButton = true;
+        private TextView mTitleTextView;
+        private TextView mDescriptionTextView;
+        private ImageButton mDeleteButton;
 
-        public ViewHolder(View itemView) {
+        private ViewHolder(View itemView) {
             super(itemView);
 
             mTitleTextView = (TextView) itemView.findViewById(R.id.item_task_title);
@@ -128,21 +125,11 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
             hideDeleteButton();
         }
 
-        public void toggleDeleteButton() {
-            if (showingDeleteButton) {
-                hideDeleteButton();
-            } else {
-                showDeleteButton();
-            }
-        }
-
-        public void hideDeleteButton() {
-            showingDeleteButton = false;
+        private void hideDeleteButton() {
             mDeleteButton.setVisibility(View.GONE);
         }
 
-        public void showDeleteButton() {
-            showingDeleteButton = true;
+        private void showDeleteButton() {
             mDeleteButton.setVisibility(View.VISIBLE);
         }
 

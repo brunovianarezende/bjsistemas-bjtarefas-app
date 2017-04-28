@@ -8,9 +8,13 @@ import android.support.v7.widget.RecyclerView;
 
 import java.util.List;
 
+import io.reactivex.Observable;
 import io.reactivex.android.schedulers.AndroidSchedulers;
 import io.reactivex.annotations.NonNull;
 import io.reactivex.functions.Consumer;
+import io.reactivex.functions.Function;
+import io.reactivex.schedulers.Schedulers;
+import nom.bruno.tasksapp.models.MyVoid;
 import nom.bruno.tasksapp.models.Task;
 import nom.bruno.tasksapp.services.TaskService;
 import nom.bruno.tasksapp.view.adapters.TasksAdapter;
@@ -31,7 +35,9 @@ public class MainActivity extends AppCompatActivity {
         rvTasks.setAdapter(adapter);
         rvTasks.setLayoutManager(layoutManager);
 
-        new TaskService().getTasks()
+        final TaskService ts = new TaskService();
+
+        ts.getTasks()
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe(new Consumer<List<Task>>() {
                     @Override
@@ -50,12 +56,26 @@ public class MainActivity extends AppCompatActivity {
                 });
 
         adapter.onDeleteSingle()
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(new Consumer<TasksAdapter.ViewHolder>() {
+                .observeOn(Schedulers.io())
+                .flatMap(new Function<TasksAdapter.ViewHolder, Observable<MyVoid>>() {
                     @Override
-                    public void accept(@NonNull TasksAdapter.ViewHolder viewHolder) throws Exception {
+                    public Observable<MyVoid> apply(@NonNull TasksAdapter.ViewHolder viewHolder) throws Exception {
                         int position = rvTasks.getChildAdapterPosition(viewHolder.itemView);
-                        adapter.deleteTask(viewHolder, position);
+                        Task task = adapter.getTask(position);
+                        return ts.deleteTask(task.getId());
+                    }
+                })
+                .flatMap(new Function<MyVoid, Observable<List<Task>>>() {
+                    @Override
+                    public Observable<List<Task>> apply(@NonNull MyVoid aVoid) throws Exception {
+                        return ts.getTasks();
+                    }
+                })
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(new Consumer<List<Task>>() {
+                    @Override
+                    public void accept(@NonNull List<Task> tasks) throws Exception {
+                        adapter.setTasks(tasks);
                     }
                 });
 
