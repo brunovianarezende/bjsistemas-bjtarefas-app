@@ -43,7 +43,7 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
     private void clearCurrentFocus() {
         ViewHolder currentlyFocused = getCurrentlyFocused();
         if (currentlyFocused != null) {
-            currentlyFocused.hideDeleteButton();
+            currentlyFocused.hideButtons();
         }
     }
 
@@ -72,11 +72,11 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
         Task relatedTask = mState.getTask(viewHolder.getAdapterPosition());
 
         if (!mState.hasFocus()) {
-            viewHolder.showDeleteButton();
+            viewHolder.showButtons();
             mState.setFocusedTask(relatedTask);
         } else if (!mState.isFocused(relatedTask)) {
             clearCurrentFocus();
-            viewHolder.showDeleteButton();
+            viewHolder.showButtons();
             mState.setFocusedTask(relatedTask);
         } else {
             clearCurrentFocus();
@@ -122,9 +122,9 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
         holder.mTitleTextView.setText(task.getTitle());
         holder.mDescriptionTextView.setText(task.getDescription());
         if (mState.isFocused(task)) {
-            holder.showDeleteButton();
+            holder.showButtons();
         } else {
-            holder.hideDeleteButton();
+            holder.hideButtons();
         }
     }
 
@@ -157,6 +157,7 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
         private TextView mTitleTextView;
         private TextView mDescriptionTextView;
         private ImageButton mDeleteButton;
+        private ImageButton mEditButton;
 
         private ViewHolder(View itemView) {
             super(itemView);
@@ -164,14 +165,17 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
             mTitleTextView = (TextView) itemView.findViewById(R.id.item_task_title);
             mDescriptionTextView = (TextView) itemView.findViewById(R.id.item_task_description);
             mDeleteButton = (ImageButton) itemView.findViewById(R.id.item_task_delete);
+            mEditButton = (ImageButton) itemView.findViewById(R.id.item_task_edit);
         }
 
-        private void hideDeleteButton() {
+        private void hideButtons() {
             mDeleteButton.setVisibility(View.GONE);
+            mEditButton.setVisibility(View.GONE);
         }
 
-        private void showDeleteButton() {
+        private void showButtons() {
             mDeleteButton.setVisibility(View.VISIBLE);
+            mEditButton.setVisibility(View.VISIBLE);
         }
 
     }
