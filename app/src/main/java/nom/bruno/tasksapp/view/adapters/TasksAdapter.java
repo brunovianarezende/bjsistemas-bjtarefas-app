@@ -1,5 +1,6 @@
 package nom.bruno.tasksapp.view.adapters;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
@@ -12,7 +13,9 @@ import com.google.gson.Gson;
 import com.jakewharton.rxbinding2.view.RxView;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import io.reactivex.Observable;
 import io.reactivex.annotations.NonNull;
@@ -42,7 +45,6 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
         if (currentlyFocused != null) {
             currentlyFocused.hideDeleteButton();
         }
-        mState.setFocusedTask(null);
     }
 
     private ViewHolder getCurrentlyFocused() {
@@ -54,8 +56,15 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
     }
 
 
-    public void setTasks(List<Task> tasks) {
-        this.mState.setTasks(tasks);
+    public void updateTasks(List<Task> tasks) {
+        AdapterState newState = new AdapterState();
+        Task focusedTask = mState.getFocusedTask();
+        newState.setTasks(tasks);
+        if (newState.contains(focusedTask)) {
+            newState.setFocusedTask(focusedTask);
+        }
+
+        mState = newState;
         notifyDataSetChanged();
     }
 
@@ -71,6 +80,7 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
             mState.setFocusedTask(relatedTask);
         } else {
             clearCurrentFocus();
+            mState.setFocusedTask(null);
         }
     }
 
@@ -113,6 +123,8 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
         holder.mDescriptionTextView.setText(task.getDescription());
         if (mState.isFocused(task)) {
             holder.showDeleteButton();
+        } else {
+            holder.hideDeleteButton();
         }
     }
 
@@ -167,7 +179,8 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
     private static class AdapterState {
         private List<Task> mTasks = Collections.emptyList();
         private int mFocusedTaskId = -1;
-        private int mFocusedTaskPosition = -1;
+        @SuppressLint("UseSparseArrays")
+        private Map<Integer, Integer> mTaskId2Position = new HashMap<>();
 
         boolean hasFocus() {
             return mFocusedTaskId != -1;
@@ -176,29 +189,29 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
         void setFocusedTask(Task taskToFocus) {
             if (taskToFocus != null) {
                 mFocusedTaskId = taskToFocus.getId();
-                for (int i = 0; i < mTasks.size(); i++) {
-                    Task task = mTasks.get(i);
-                    if (taskToFocus.getId() == task.getId()) {
-                        mFocusedTaskPosition = i;
-                        break;
-                    }
-                }
             } else {
                 mFocusedTaskId = -1;
-                mFocusedTaskPosition = -1;
+            }
+        }
+
+        Task getFocusedTask() {
+            if (mFocusedTaskId == -1) {
+                return null;
+            } else {
+                return getTask(mTaskId2Position.get(mFocusedTaskId));
             }
         }
 
         boolean isFocused(Task task) {
-            return task.getId() == mFocusedTaskId;
+            return mFocusedTaskId != -1 && task.equals(getFocusedTask());
         }
 
         Task getTask(int position) {
             return mTasks.get(position);
         }
 
-        int getFocusedTaskPosition() {
-            return mFocusedTaskPosition;
+        Integer getFocusedTaskPosition() {
+            return mTaskId2Position.get(mFocusedTaskId);
         }
 
         int getNumTasks() {
@@ -207,8 +220,13 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
 
         void setTasks(List<Task> tasks) {
             mTasks = tasks;
-            mFocusedTaskId = -1;
-            mFocusedTaskPosition = -1;
+            for (int i = 0; i < mTasks.size(); i++) {
+                mTaskId2Position.put(mTasks.get(i).getId(), i);
+            }
+        }
+
+        boolean contains(Task task) {
+            return task != null && mTaskId2Position.containsKey(task.getId());
         }
     }
 }

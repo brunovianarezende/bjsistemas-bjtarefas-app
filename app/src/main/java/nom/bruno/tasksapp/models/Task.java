@@ -28,4 +28,8 @@ public class Task {
     public void setDescription(String description) {
         this.description = description;
     }
+
+    public boolean equals(Task other) {
+        return this.getId() == other.getId();
+    }
 }

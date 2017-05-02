@@ -7,6 +7,7 @@ import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import io.reactivex.Observable;
 import io.reactivex.android.schedulers.AndroidSchedulers;
@@ -45,12 +46,27 @@ public class MainActivity extends AppCompatActivity {
                     .subscribe(new Consumer<List<Task>>() {
                         @Override
                         public void accept(@NonNull List<Task> result) throws Exception {
-                            mAdapter.setTasks(result);
+                            mAdapter.updateTasks(result);
                         }
                     });
         } else {
             mAdapter.deserializeState(savedInstanceState.getString(mAdapter.getClass().getCanonicalName()));
         }
+
+        Observable.interval(1, TimeUnit.MINUTES)
+                .flatMap(new Function<Long, Observable<List<Task>>>() {
+                    @Override
+                    public Observable<List<Task>> apply(@NonNull Long aLong) throws Exception {
+                        return ts.getTasks();
+                    }
+                })
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(new Consumer<List<Task>>() {
+                    @Override
+                    public void accept(@NonNull List<Task> tasks) throws Exception {
+                        mAdapter.updateTasks(tasks);
+                    }
+                });
 
         mAdapter.onClickView()
                 .observeOn(AndroidSchedulers.mainThread())
@@ -81,7 +97,7 @@ public class MainActivity extends AppCompatActivity {
                 .subscribe(new Consumer<List<Task>>() {
                     @Override
                     public void accept(@NonNull List<Task> tasks) throws Exception {
-                        mAdapter.setTasks(tasks);
+                        mAdapter.updateTasks(tasks);
                     }
                 });
 
