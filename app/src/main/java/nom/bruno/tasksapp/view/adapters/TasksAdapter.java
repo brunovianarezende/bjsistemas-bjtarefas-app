@@ -2,6 +2,7 @@ package nom.bruno.tasksapp.view.adapters;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
+import android.support.annotation.NonNull;
 import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -22,7 +23,6 @@ import java.util.Map;
 import java.util.Set;
 
 import io.reactivex.Observable;
-import io.reactivex.annotations.NonNull;
 import io.reactivex.functions.Consumer;
 import io.reactivex.functions.Function;
 import io.reactivex.subjects.PublishSubject;
@@ -34,7 +34,7 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
 
     private PublishSubject<TasksAdapter.ViewHolder> deleteSubject = PublishSubject.create();
 
-    private PublishSubject<TasksAdapter.ViewHolder> saveSubject = PublishSubject.create();
+    private PublishSubject<Task> saveSubject = PublishSubject.create();
 
     private RecyclerView mRecyclerView;
 
@@ -42,7 +42,7 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
         return deleteSubject;
     }
 
-    public Observable<TasksAdapter.ViewHolder> onSave() {
+    public Observable<Task> onSave() {
         return saveSubject;
     }
 
@@ -86,7 +86,7 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
             mState.selectTask(relatedTask);
         } else {
             clearCurrentlySelected();
-            mState.selectTask(null);
+            mState.clearSelectedTask();
         }
     }
 
@@ -110,10 +110,16 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
 
         RxView.clicks(viewHolder.mEditSaveButton)
                 .takeUntil(RxView.detaches(recyclerView))
-                .map(new Function<Object, TasksAdapter.ViewHolder>() {
+                .map(new Function<Object, Task>() {
                     @Override
-                    public TasksAdapter.ViewHolder apply(@NonNull Object o) throws Exception {
-                        return viewHolder;
+                    public Task apply(@NonNull Object o) throws Exception {
+                        Task task = new Task();
+                        Task currentTask = mState.getSelectedTask();
+                        task.setId(currentTask.getId());
+                        task.setTitle(viewHolder.mTitleEditText.getText().toString());
+                        task.setDescription(viewHolder.mDescriptionEditText.getText().toString());
+                        mState.clearSelectedTask();
+                        return task;
                     }
                 })
                 .subscribe(saveSubject);
@@ -284,14 +290,14 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
             return mSelectedTaskId != -1;
         }
 
-        void selectTask(Task taskToFocus) {
-            if (taskToFocus != null) {
-                mSelectedTaskId = taskToFocus.getId();
-                mSelectedTaskState = TASK_SELECTED;
-            } else {
-                mSelectedTaskId = -1;
-                mSelectedTaskState = VIEW_TASK;
-            }
+        void selectTask(@NonNull Task taskToFocus) {
+            mSelectedTaskId = taskToFocus.getId();
+            mSelectedTaskState = TASK_SELECTED;
+        }
+
+        void clearSelectedTask() {
+            mSelectedTaskId = -1;
+            mSelectedTaskState = VIEW_TASK;
         }
 
         Task getSelectedTask() {

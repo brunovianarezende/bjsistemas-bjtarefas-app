@@ -1,17 +1,18 @@
 package nom.bruno.tasksapp;
 
 import android.os.Bundle;
+import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.DividerItemDecoration;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import io.reactivex.Observable;
 import io.reactivex.android.schedulers.AndroidSchedulers;
-import io.reactivex.annotations.NonNull;
 import io.reactivex.functions.Consumer;
 import io.reactivex.functions.Function;
 import io.reactivex.schedulers.Schedulers;
@@ -89,6 +90,15 @@ public class MainActivity extends AppCompatActivity {
                     @Override
                     public void accept(@NonNull List<Task> tasks) throws Exception {
                         mAdapter.updateTasks(tasks);
+                    }
+                });
+
+        mAdapter.onSave()
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(new Consumer<Task>() {
+                    @Override
+                    public void accept(@NonNull Task task) throws Exception {
+                        mAdapter.updateTasks(Collections.singletonList(task));
                     }
                 });
     }
