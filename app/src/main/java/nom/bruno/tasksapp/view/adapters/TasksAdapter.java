@@ -23,6 +23,7 @@ import java.util.Set;
 
 import io.reactivex.Observable;
 import io.reactivex.annotations.NonNull;
+import io.reactivex.functions.Consumer;
 import io.reactivex.functions.Function;
 import io.reactivex.subjects.PublishSubject;
 import nom.bruno.tasksapp.R;
@@ -31,22 +32,18 @@ import nom.bruno.tasksapp.models.Task;
 public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> {
     private AdapterState mState = new AdapterState();
 
-    private PublishSubject<TasksAdapter.ViewHolder> clickSubject = PublishSubject.create();
     private PublishSubject<TasksAdapter.ViewHolder> deleteSubject = PublishSubject.create();
-    private PublishSubject<TasksAdapter.ViewHolder> editSubject = PublishSubject.create();
+
+    private PublishSubject<TasksAdapter.ViewHolder> saveSubject = PublishSubject.create();
 
     private RecyclerView mRecyclerView;
-
-    public Observable<TasksAdapter.ViewHolder> onClickView() {
-        return clickSubject;
-    }
 
     public Observable<TasksAdapter.ViewHolder> onDeleteSingle() {
         return deleteSubject;
     }
 
-    public Observable<TasksAdapter.ViewHolder> onEditSingle() {
-        return editSubject;
+    public Observable<TasksAdapter.ViewHolder> onSave() {
+        return saveSubject;
     }
 
     private void clearCurrentlySelected() {
@@ -64,7 +61,6 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
         }
     }
 
-
     public void updateTasks(List<Task> tasks) {
         AdapterState newState = new AdapterState();
         Task focusedTask = mState.getSelectedTask();
@@ -78,7 +74,7 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
         notifyDataSetChanged();
     }
 
-    public void focusOn(ViewHolder viewHolder) {
+    private void focusOn(ViewHolder viewHolder) {
         Task relatedTask = mState.getTask(viewHolder.getAdapterPosition());
 
         if (!mState.hasTaskSelected()) {
@@ -102,16 +98,6 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
         View taskView = inflater.inflate(R.layout.item_task, recyclerView, false);
         final ViewHolder viewHolder = new ViewHolder(taskView);
 
-        RxView.clicks(taskView)
-                .takeUntil(RxView.detaches(recyclerView))
-                .map(new Function<Object, TasksAdapter.ViewHolder>() {
-                    @Override
-                    public TasksAdapter.ViewHolder apply(@NonNull Object o) throws Exception {
-                        return viewHolder;
-                    }
-                })
-                .subscribe(clickSubject);
-
         RxView.clicks(viewHolder.mDeleteButton)
                 .takeUntil(RxView.detaches(recyclerView))
                 .map(new Function<Object, TasksAdapter.ViewHolder>() {
@@ -122,7 +108,7 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
                 })
                 .subscribe(deleteSubject);
 
-        RxView.clicks(viewHolder.mEditButton)
+        RxView.clicks(viewHolder.mEditSaveButton)
                 .takeUntil(RxView.detaches(recyclerView))
                 .map(new Function<Object, TasksAdapter.ViewHolder>() {
                     @Override
@@ -130,7 +116,34 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
                         return viewHolder;
                     }
                 })
-                .subscribe(editSubject);
+                .subscribe(saveSubject);
+
+        RxView.clicks(taskView)
+                .takeUntil(RxView.detaches(recyclerView))
+                .subscribe(new Consumer<Object>() {
+                    @Override
+                    public void accept(@NonNull Object o) throws Exception {
+                        focusOn(viewHolder);
+                    }
+                });
+
+        RxView.clicks(viewHolder.mEditButton)
+                .takeUntil(RxView.detaches(recyclerView))
+                .subscribe(new Consumer<Object>() {
+                    @Override
+                    public void accept(@NonNull Object o) throws Exception {
+                        startEditMode(viewHolder);
+                    }
+                });
+
+        RxView.clicks((viewHolder.mEditCancelButton))
+                .takeUntil(RxView.detaches(recyclerView))
+                .subscribe(new Consumer<Object>() {
+                    @Override
+                    public void accept(@NonNull Object o) throws Exception {
+                        viewHolder.showItemSelectedState();
+                    }
+                });
 
         startViewMode(viewHolder);
 
@@ -177,7 +190,7 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
         this.mRecyclerView = recyclerView;
     }
 
-    public void startEditMode(ViewHolder viewHolder) {
+    private void startEditMode(ViewHolder viewHolder) {
         viewHolder.showEditState();
         mState.setSelectedTaskState(EDIT_TASK);
     }
@@ -191,6 +204,8 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
         private TextView mDescriptionTextView;
         private ImageButton mDeleteButton;
         private ImageButton mEditButton;
+        private ImageButton mEditSaveButton;
+        private ImageButton mEditCancelButton;
         private EditText mTitleEditText;
         private EditText mDescriptionEditText;
 
@@ -203,11 +218,14 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
             mDescriptionTextView = (TextView) itemView.findViewById(R.id.item_task_description);
             mDeleteButton = (ImageButton) itemView.findViewById(R.id.item_task_delete);
             mEditButton = (ImageButton) itemView.findViewById(R.id.item_task_edit);
+            mEditSaveButton = (ImageButton) itemView.findViewById(R.id.item_task_save_edit);
+            mEditCancelButton = (ImageButton) itemView.findViewById(R.id.item_task_cancel_edit);
             mTitleEditText = (EditText) itemView.findViewById(R.id.item_task_edit_title);
             mDescriptionEditText = (EditText) itemView.findViewById(R.id.item_task_edit_description);
 
             allItems = Arrays.asList(mTitleTextView, mDescriptionTextView, mDeleteButton,
-                    mEditButton, mTitleEditText, mDescriptionEditText);
+                    mEditButton, mTitleEditText, mDescriptionEditText, mEditSaveButton,
+                    mEditCancelButton);
         }
 
         private void showOnly(View... items) {
@@ -233,7 +251,7 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
         }
 
         private void showEditState() {
-            showOnly(mTitleEditText, mDescriptionEditText);
+            showOnly(mTitleEditText, mDescriptionEditText, mEditSaveButton, mEditCancelButton);
         }
 
         private void showState(int state) {
