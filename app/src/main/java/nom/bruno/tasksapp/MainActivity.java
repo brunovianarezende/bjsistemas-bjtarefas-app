@@ -77,6 +77,15 @@ public class MainActivity extends AppCompatActivity {
                     }
                 });
 
+        mAdapter.onEditSingle()
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(new Consumer<TasksAdapter.ViewHolder>() {
+                    @Override
+                    public void accept(@NonNull TasksAdapter.ViewHolder viewHolder) throws Exception {
+                        mAdapter.startEditMode(viewHolder);
+                    }
+                });
+
         mAdapter.onDeleteSingle()
                 .observeOn(Schedulers.io())
                 .flatMap(new Function<TasksAdapter.ViewHolder, Observable<MyVoid>>() {

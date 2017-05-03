@@ -6,16 +6,20 @@ import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.TextView;
 
 import com.google.gson.Gson;
 import com.jakewharton.rxbinding2.view.RxView;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import io.reactivex.Observable;
 import io.reactivex.annotations.NonNull;
@@ -29,6 +33,7 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
 
     private PublishSubject<TasksAdapter.ViewHolder> clickSubject = PublishSubject.create();
     private PublishSubject<TasksAdapter.ViewHolder> deleteSubject = PublishSubject.create();
+    private PublishSubject<TasksAdapter.ViewHolder> editSubject = PublishSubject.create();
 
     private RecyclerView mRecyclerView;
 
@@ -40,16 +45,20 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
         return deleteSubject;
     }
 
-    private void clearCurrentFocus() {
-        ViewHolder currentlyFocused = getCurrentlyFocused();
+    public Observable<TasksAdapter.ViewHolder> onEditSingle() {
+        return editSubject;
+    }
+
+    private void clearCurrentlySelected() {
+        ViewHolder currentlyFocused = getCurrentlySelected();
         if (currentlyFocused != null) {
-            currentlyFocused.hideButtons();
+            currentlyFocused.showViewState();
         }
     }
 
-    private ViewHolder getCurrentlyFocused() {
-        if (mState.hasFocus()) {
-            return (ViewHolder) mRecyclerView.getChildViewHolder(mRecyclerView.getChildAt(mState.getFocusedTaskPosition()));
+    private ViewHolder getCurrentlySelected() {
+        if (mState.hasTaskSelected()) {
+            return (ViewHolder) mRecyclerView.getChildViewHolder(mRecyclerView.getChildAt(mState.getSelectedTaskPosition()));
         } else {
             return null;
         }
@@ -58,10 +67,11 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
 
     public void updateTasks(List<Task> tasks) {
         AdapterState newState = new AdapterState();
-        Task focusedTask = mState.getFocusedTask();
+        Task focusedTask = mState.getSelectedTask();
         newState.setTasks(tasks);
         if (newState.contains(focusedTask)) {
-            newState.setFocusedTask(focusedTask);
+            newState.selectTask(focusedTask);
+            newState.setSelectedTaskState(mState.getSelectedTaskState());
         }
 
         mState = newState;
@@ -71,16 +81,16 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
     public void focusOn(ViewHolder viewHolder) {
         Task relatedTask = mState.getTask(viewHolder.getAdapterPosition());
 
-        if (!mState.hasFocus()) {
-            viewHolder.showButtons();
-            mState.setFocusedTask(relatedTask);
-        } else if (!mState.isFocused(relatedTask)) {
-            clearCurrentFocus();
-            viewHolder.showButtons();
-            mState.setFocusedTask(relatedTask);
+        if (!mState.hasTaskSelected()) {
+            viewHolder.showItemSelectedState();
+            mState.selectTask(relatedTask);
+        } else if (!mState.isSelected(relatedTask)) {
+            clearCurrentlySelected();
+            viewHolder.showItemSelectedState();
+            mState.selectTask(relatedTask);
         } else {
-            clearCurrentFocus();
-            mState.setFocusedTask(null);
+            clearCurrentlySelected();
+            mState.selectTask(null);
         }
     }
 
@@ -112,6 +122,18 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
                 })
                 .subscribe(deleteSubject);
 
+        RxView.clicks(viewHolder.mEditButton)
+                .takeUntil(RxView.detaches(recyclerView))
+                .map(new Function<Object, TasksAdapter.ViewHolder>() {
+                    @Override
+                    public TasksAdapter.ViewHolder apply(@NonNull Object o) throws Exception {
+                        return viewHolder;
+                    }
+                })
+                .subscribe(editSubject);
+
+        startViewMode(viewHolder);
+
         return viewHolder;
     }
 
@@ -121,10 +143,12 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
 
         holder.mTitleTextView.setText(task.getTitle());
         holder.mDescriptionTextView.setText(task.getDescription());
-        if (mState.isFocused(task)) {
-            holder.showButtons();
+        holder.mTitleEditText.setText(task.getTitle());
+        holder.mDescriptionEditText.setText(task.getDescription());
+        if (mState.isSelected(task)) {
+            holder.showState(mState.getSelectedTaskState());
         } else {
-            holder.hideButtons();
+            holder.showViewState();
         }
     }
 
@@ -153,11 +177,24 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
         this.mRecyclerView = recyclerView;
     }
 
+    public void startEditMode(ViewHolder viewHolder) {
+        viewHolder.showEditState();
+        mState.setSelectedTaskState(EDIT_TASK);
+    }
+
+    private void startViewMode(ViewHolder viewHolder) {
+        viewHolder.showViewState();
+    }
+
     public static class ViewHolder extends RecyclerView.ViewHolder {
         private TextView mTitleTextView;
         private TextView mDescriptionTextView;
         private ImageButton mDeleteButton;
         private ImageButton mEditButton;
+        private EditText mTitleEditText;
+        private EditText mDescriptionEditText;
+
+        private final List<View> allItems;
 
         private ViewHolder(View itemView) {
             super(itemView);
@@ -166,56 +203,105 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
             mDescriptionTextView = (TextView) itemView.findViewById(R.id.item_task_description);
             mDeleteButton = (ImageButton) itemView.findViewById(R.id.item_task_delete);
             mEditButton = (ImageButton) itemView.findViewById(R.id.item_task_edit);
+            mTitleEditText = (EditText) itemView.findViewById(R.id.item_task_edit_title);
+            mDescriptionEditText = (EditText) itemView.findViewById(R.id.item_task_edit_description);
+
+            allItems = Arrays.asList(mTitleTextView, mDescriptionTextView, mDeleteButton,
+                    mEditButton, mTitleEditText, mDescriptionEditText);
         }
 
-        private void hideButtons() {
-            mDeleteButton.setVisibility(View.GONE);
-            mEditButton.setVisibility(View.GONE);
+        private void showOnly(View... items) {
+            Set<Integer> idsToShow = new HashSet<>();
+            for (View item : items) {
+                idsToShow.add(item.getId());
+            }
+            for (View item : allItems) {
+                if (idsToShow.contains(item.getId())) {
+                    item.setVisibility(View.VISIBLE);
+                } else {
+                    item.setVisibility(View.GONE);
+                }
+            }
         }
 
-        private void showButtons() {
-            mDeleteButton.setVisibility(View.VISIBLE);
-            mEditButton.setVisibility(View.VISIBLE);
+        private void showViewState() {
+            showOnly(mTitleTextView, mDescriptionTextView);
         }
 
+        private void showItemSelectedState() {
+            showOnly(mTitleTextView, mDescriptionTextView, mDeleteButton, mEditButton);
+        }
+
+        private void showEditState() {
+            showOnly(mTitleEditText, mDescriptionEditText);
+        }
+
+        private void showState(int state) {
+            switch (state) {
+                case VIEW_TASK:
+                    showViewState();
+                    break;
+                case TASK_SELECTED:
+                    showItemSelectedState();
+                    break;
+                case EDIT_TASK:
+                    showEditState();
+                    break;
+            }
+        }
     }
+
+    private static final int VIEW_TASK = 0;
+    private static final int TASK_SELECTED = 1;
+    private static final int EDIT_TASK = 2;
 
     private static class AdapterState {
         private List<Task> mTasks = Collections.emptyList();
-        private int mFocusedTaskId = -1;
+        private int mSelectedTaskId = -1;
+        private int mSelectedTaskState = VIEW_TASK;
         @SuppressLint("UseSparseArrays")
         private Map<Integer, Integer> mTaskId2Position = new HashMap<>();
 
-        boolean hasFocus() {
-            return mFocusedTaskId != -1;
+        boolean hasTaskSelected() {
+            return mSelectedTaskId != -1;
         }
 
-        void setFocusedTask(Task taskToFocus) {
+        void selectTask(Task taskToFocus) {
             if (taskToFocus != null) {
-                mFocusedTaskId = taskToFocus.getId();
+                mSelectedTaskId = taskToFocus.getId();
+                mSelectedTaskState = TASK_SELECTED;
             } else {
-                mFocusedTaskId = -1;
+                mSelectedTaskId = -1;
+                mSelectedTaskState = VIEW_TASK;
             }
         }
 
-        Task getFocusedTask() {
-            if (mFocusedTaskId == -1) {
+        Task getSelectedTask() {
+            if (mSelectedTaskId == -1) {
                 return null;
             } else {
-                return getTask(mTaskId2Position.get(mFocusedTaskId));
+                return getTask(mTaskId2Position.get(mSelectedTaskId));
             }
         }
 
-        boolean isFocused(Task task) {
-            return mFocusedTaskId != -1 && task.equals(getFocusedTask());
+        boolean isSelected(Task task) {
+            return mSelectedTaskId != -1 && task.equals(getSelectedTask());
+        }
+
+        Integer getSelectedTaskPosition() {
+            return mTaskId2Position.get(mSelectedTaskId);
+        }
+
+        int getSelectedTaskState() {
+            return mSelectedTaskState;
+        }
+
+        void setSelectedTaskState(int state) {
+            mSelectedTaskState = state;
         }
 
         Task getTask(int position) {
             return mTasks.get(position);
-        }
-
-        Integer getFocusedTaskPosition() {
-            return mTaskId2Position.get(mFocusedTaskId);
         }
 
         int getNumTasks() {
