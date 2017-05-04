@@ -1,12 +1,25 @@
 package nom.bruno.tasksapp;
 
+import android.app.Activity;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.DividerItemDecoration;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.support.v7.widget.Toolbar;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
+import android.view.View;
+import android.widget.EditText;
+import android.widget.ImageButton;
 
+import com.google.gson.Gson;
+import com.jakewharton.rxbinding2.view.RxView;
+
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -15,6 +28,7 @@ import io.reactivex.android.schedulers.AndroidSchedulers;
 import io.reactivex.functions.Consumer;
 import io.reactivex.functions.Function;
 import io.reactivex.schedulers.Schedulers;
+import io.reactivex.subjects.PublishSubject;
 import nom.bruno.tasksapp.models.MyVoid;
 import nom.bruno.tasksapp.models.Task;
 import nom.bruno.tasksapp.models.TaskUpdateParameters;
@@ -23,12 +37,19 @@ import nom.bruno.tasksapp.view.adapters.TasksAdapter;
 
 public class MainActivity extends AppCompatActivity {
     private TasksAdapter mAdapter = null;
-
+    private ActivityState mState = new ActivityState();
+    private PublishSubject<Object> mAddTaskSubject = PublishSubject.create();
+    private AddTaskView mAddTaskView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        mAddTaskView = new AddTaskView(this);
+
+        Toolbar toolbar = (Toolbar) findViewById(R.id.tasks_toolbar);
+        setSupportActionBar(toolbar);
 
         final RecyclerView rvTasks = (RecyclerView) findViewById(R.id.tasks_recycler_view);
         LinearLayoutManager layoutManager = new LinearLayoutManager(this);
@@ -50,7 +71,9 @@ public class MainActivity extends AppCompatActivity {
                             mAdapter.updateTasks(result);
                         }
                     });
+            switchToDefaultState();
         } else {
+            deserializeState(savedInstanceState.getString(getClass().getCanonicalName()));
             mAdapter.deserializeState(savedInstanceState.getString(mAdapter.getClass().getCanonicalName()));
         }
 
@@ -112,11 +135,159 @@ public class MainActivity extends AppCompatActivity {
                         mAdapter.updateTasks(tasks);
                     }
                 });
+
+        mAddTaskSubject.observeOn(AndroidSchedulers.mainThread())
+                .subscribe(new Consumer<Object>() {
+                    @Override
+                    public void accept(@NonNull Object o) throws Exception {
+                        switchToAddTaskState();
+                    }
+                });
+
+        mAddTaskView.getSaveNewTaskClicks()
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(new Consumer<Object>() {
+                    @Override
+                    public void accept(@NonNull Object o) throws Exception {
+                        Task newTask = mAddTaskView.getNewTask();
+                        switchToDefaultState();
+                        mAdapter.updateTasks(Collections.singletonList(newTask));
+                    }
+                });
+
+        mAddTaskView.getCancelAddNewTaskClicks()
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(new Consumer<Object>() {
+                    @Override
+                    public void accept(@NonNull Object o) throws Exception {
+                        switchToDefaultState();
+                    }
+                });
+    }
+
+    private void switchToDefaultState() {
+        mState.setState(DEFAULT_STATE);
+        mAddTaskView.hideAllFields();
+    }
+
+    private void switchToAddTaskState() {
+        mState.setState(ADD_TASK_STATE);
+        mAddTaskView.cleanFields();
+        mAddTaskView.showAllFields();
+    }
+
+    private void switchToState(int state) {
+        switch (state) {
+            case DEFAULT_STATE:
+                switchToDefaultState();
+                break;
+            case ADD_TASK_STATE:
+                switchToAddTaskState();
+                break;
+        }
     }
 
     @Override
     protected void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
+        outState.putString(getClass().getCanonicalName(), serializeState());
         outState.putString(mAdapter.getClass().getCanonicalName(), mAdapter.serializeState());
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        MenuInflater inflater = getMenuInflater();
+        inflater.inflate(R.menu.tasks_menu, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        switch (item.getItemId()) {
+            case R.id.add_task:
+                mAddTaskSubject.onNext("");
+                return true;
+            default:
+                return super.onOptionsItemSelected(item);
+        }
+    }
+
+    private void deserializeState(String serializedState) {
+        Gson gson = new Gson();
+        mState = gson.fromJson(serializedState, ActivityState.class);
+        switchToState(mState.getState());
+    }
+
+    private String serializeState() {
+        Gson gson = new Gson();
+        return gson.toJson(mState);
+    }
+
+    private static class AddTaskView {
+        private final EditText mTitleEditText;
+        private final EditText mDescriptionEditText;
+        private final ImageButton mAddSaveButton;
+        private final ImageButton mAddCancelButton;
+        private final List<View> allItems;
+        private final Observable<Object> mSaveNewTaskClicks;
+        private final Observable<Object> mCancelAddNewTaskClicks;
+
+        public AddTaskView(Activity activity) {
+            mTitleEditText = (EditText) activity.findViewById(R.id.tasks_add_task_title);
+            mDescriptionEditText = (EditText) activity.findViewById(R.id.tasks_add_task_description);
+            mAddSaveButton = (ImageButton) activity.findViewById(R.id.tasks_add_task_save);
+            mAddCancelButton = (ImageButton) activity.findViewById(R.id.tasks_add_task_cancel);
+            allItems = Arrays.asList(mTitleEditText, mDescriptionEditText, mAddSaveButton, mAddCancelButton);
+
+            mSaveNewTaskClicks = RxView.clicks(mAddSaveButton);
+            mCancelAddNewTaskClicks = RxView.clicks(mAddCancelButton);
+        }
+
+        public Observable<Object> getSaveNewTaskClicks() {
+            return mSaveNewTaskClicks;
+        }
+
+        public Observable<Object> getCancelAddNewTaskClicks() {
+            return mCancelAddNewTaskClicks;
+        }
+
+        void showAllFields() {
+            for (View view : allItems) {
+                view.setVisibility(View.VISIBLE);
+            }
+        }
+
+        void hideAllFields() {
+            for (View view : allItems) {
+                view.setVisibility(View.GONE);
+            }
+        }
+
+        public void cleanFields() {
+            mTitleEditText.setText("");
+            mDescriptionEditText.setText("");
+        }
+
+        public Task getNewTask() {
+            Task task = new Task();
+            task.setTitle(mTitleEditText.getText().toString());
+            task.setDescription(mDescriptionEditText.getText().toString());
+            return task;
+        }
+    }
+
+    private static final int DEFAULT_STATE = 0;
+    private static final int ADD_TASK_STATE = 1;
+
+    private static class ActivityState {
+        private int mState;
+
+        int getState() {
+            return mState;
+        }
+
+        void setState(int mState) {
+            this.mState = mState;
+        }
     }
 }

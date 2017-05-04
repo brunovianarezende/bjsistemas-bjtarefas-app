@@ -179,10 +179,6 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
         return mState.getNumTasks();
     }
 
-    public Task getTask(int position) {
-        return mState.getTask(position);
-    }
-
     public String serializeState() {
         Gson gson = new Gson();
         return gson.toJson(mState);
