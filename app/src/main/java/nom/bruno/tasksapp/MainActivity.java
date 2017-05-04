@@ -71,11 +71,9 @@ public class MainActivity extends AppCompatActivity {
 
         mAdapter.onDeleteSingle()
                 .observeOn(Schedulers.io())
-                .flatMap(new Function<TasksAdapter.ViewHolder, Observable<MyVoid>>() {
+                .flatMap(new Function<Task, Observable<MyVoid>>() {
                     @Override
-                    public Observable<MyVoid> apply(@NonNull TasksAdapter.ViewHolder viewHolder) throws Exception {
-                        int position = rvTasks.getChildAdapterPosition(viewHolder.itemView);
-                        Task task = mAdapter.getTask(position);
+                    public Observable<MyVoid> apply(@NonNull Task task) throws Exception {
                         return ts.deleteTask(task.getId());
                     }
                 })

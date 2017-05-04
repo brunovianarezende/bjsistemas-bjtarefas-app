@@ -34,13 +34,13 @@ import nom.bruno.tasksapp.models.TaskUpdateParameters;
 public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> {
     private AdapterState mState = new AdapterState();
 
-    private PublishSubject<TasksAdapter.ViewHolder> deleteSubject = PublishSubject.create();
+    private PublishSubject<Task> deleteSubject = PublishSubject.create();
 
     private PublishSubject<TaskUpdateParameters> saveSubject = PublishSubject.create();
 
     private RecyclerView mRecyclerView;
 
-    public Observable<TasksAdapter.ViewHolder> onDeleteSingle() {
+    public Observable<Task> onDeleteSingle() {
         return deleteSubject;
     }
 
@@ -102,10 +102,10 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
 
         RxView.clicks(viewHolder.mDeleteButton)
                 .takeUntil(RxView.detaches(recyclerView))
-                .map(new Function<Object, TasksAdapter.ViewHolder>() {
+                .map(new Function<Object, Task>() {
                     @Override
-                    public TasksAdapter.ViewHolder apply(@NonNull Object o) throws Exception {
-                        return viewHolder;
+                    public Task apply(@NonNull Object o) throws Exception {
+                        return mState.getSelectedTask();
                     }
                 })
                 .subscribe(deleteSubject);
