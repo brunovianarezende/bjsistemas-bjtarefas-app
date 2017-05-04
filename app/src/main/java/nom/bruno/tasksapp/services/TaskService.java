@@ -11,6 +11,7 @@ import nom.bruno.tasksapp.Constants;
 import nom.bruno.tasksapp.models.MyVoid;
 import nom.bruno.tasksapp.models.Result;
 import nom.bruno.tasksapp.models.Task;
+import nom.bruno.tasksapp.models.TaskCreation;
 import nom.bruno.tasksapp.models.TaskUpdate;
 import retrofit2.Retrofit;
 import retrofit2.adapter.rxjava2.RxJava2CallAdapterFactory;
@@ -18,6 +19,7 @@ import retrofit2.converter.gson.GsonConverterFactory;
 import retrofit2.http.Body;
 import retrofit2.http.DELETE;
 import retrofit2.http.GET;
+import retrofit2.http.POST;
 import retrofit2.http.PUT;
 import retrofit2.http.Path;
 
@@ -68,14 +70,29 @@ public class TaskService {
                 });
     }
 
+    public Observable<Integer> addTask(TaskCreation taskCreation) {
+        return mExternalApi.addTask(taskCreation)
+                .onErrorResumeNext(mInternalApi.addTask(taskCreation))
+                .map(new Function<Result<Integer>, Integer>() {
+                    @Override
+                    public Integer apply(@NonNull Result<Integer> integerResult) throws Exception {
+                        return integerResult.getData();
+                    }
+                });
+    }
+
     public interface TaskApi {
         @GET("tasks")
         Observable<Result<List<Task>>> getTasks();
+
+        @POST("tasks")
+        Observable<Result<Integer>> addTask(@Body TaskCreation taskCreation);
 
         @DELETE("tasks/{id}")
         Observable<Result<Void>> deleteTask(@Path("id") int id);
 
         @PUT("tasks/{id}")
         Observable<Result<Void>> updateTask(@Path("id") int id, @Body TaskUpdate taskUpdate);
+
     }
 }

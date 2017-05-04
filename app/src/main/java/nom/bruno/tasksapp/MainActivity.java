@@ -1,6 +1,7 @@
 package nom.bruno.tasksapp;
 
 import android.app.Activity;
+import android.content.Context;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
@@ -12,6 +13,7 @@ import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 import android.widget.ImageButton;
 
@@ -19,11 +21,11 @@ import com.google.gson.Gson;
 import com.jakewharton.rxbinding2.view.RxView;
 
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import io.reactivex.Observable;
+import io.reactivex.ObservableSource;
 import io.reactivex.android.schedulers.AndroidSchedulers;
 import io.reactivex.functions.Consumer;
 import io.reactivex.functions.Function;
@@ -31,6 +33,7 @@ import io.reactivex.schedulers.Schedulers;
 import io.reactivex.subjects.PublishSubject;
 import nom.bruno.tasksapp.models.MyVoid;
 import nom.bruno.tasksapp.models.Task;
+import nom.bruno.tasksapp.models.TaskCreation;
 import nom.bruno.tasksapp.models.TaskUpdateParameters;
 import nom.bruno.tasksapp.services.TaskService;
 import nom.bruno.tasksapp.view.adapters.TasksAdapter;
@@ -144,14 +147,33 @@ public class MainActivity extends AppCompatActivity {
                     }
                 });
 
-        mAddTaskView.getSaveNewTaskClicks()
+        mAddTaskView.newTaskData()
                 .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(new Consumer<Object>() {
+                .doOnNext(new Consumer<TaskCreation>() {
                     @Override
-                    public void accept(@NonNull Object o) throws Exception {
-                        Task newTask = mAddTaskView.getNewTask();
+                    public void accept(@NonNull TaskCreation taskCreation) throws Exception {
+                        hideKeyboard();
                         switchToDefaultState();
-                        mAdapter.updateTasks(Collections.singletonList(newTask));
+                    }
+                })
+                .observeOn(Schedulers.io())
+                .flatMap(new Function<TaskCreation, ObservableSource<Integer>>() {
+                    @Override
+                    public ObservableSource<Integer> apply(@NonNull TaskCreation taskCreation) throws Exception {
+                        return ts.addTask(taskCreation);
+                    }
+                })
+                .flatMap(new Function<Integer, Observable<List<Task>>>() {
+                    @Override
+                    public Observable<List<Task>> apply(@NonNull Integer newId) throws Exception {
+                        return ts.getTasks();
+                    }
+                })
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(new Consumer<List<Task>>() {
+                    @Override
+                    public void accept(@NonNull List<Task> tasks) throws Exception {
+                        mAdapter.updateTasks(tasks);
                     }
                 });
 
@@ -163,6 +185,14 @@ public class MainActivity extends AppCompatActivity {
                         switchToDefaultState();
                     }
                 });
+    }
+
+    private void hideKeyboard() {
+        View view = this.getCurrentFocus();
+        if (view != null) {
+            InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+            imm.hideSoftInputFromWindow(view.getWindowToken(), 0);
+        }
     }
 
     private void switchToDefaultState() {
@@ -243,8 +273,13 @@ public class MainActivity extends AppCompatActivity {
             mCancelAddNewTaskClicks = RxView.clicks(mAddCancelButton);
         }
 
-        public Observable<Object> getSaveNewTaskClicks() {
-            return mSaveNewTaskClicks;
+        public Observable<TaskCreation> newTaskData() {
+            return mSaveNewTaskClicks.map(new Function<Object, TaskCreation>() {
+                @Override
+                public TaskCreation apply(@io.reactivex.annotations.NonNull Object o) throws Exception {
+                    return getNewTaskData();
+                }
+            });
         }
 
         public Observable<Object> getCancelAddNewTaskClicks() {
@@ -268,11 +303,11 @@ public class MainActivity extends AppCompatActivity {
             mDescriptionEditText.setText("");
         }
 
-        public Task getNewTask() {
-            Task task = new Task();
-            task.setTitle(mTitleEditText.getText().toString());
-            task.setDescription(mDescriptionEditText.getText().toString());
-            return task;
+        public TaskCreation getNewTaskData() {
+            TaskCreation taskData = new TaskCreation();
+            taskData.setTitle(mTitleEditText.getText().toString());
+            taskData.setDescription(mDescriptionEditText.getText().toString());
+            return taskData;
         }
     }
 
