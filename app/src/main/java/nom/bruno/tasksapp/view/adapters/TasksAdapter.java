@@ -28,13 +28,15 @@ import io.reactivex.functions.Function;
 import io.reactivex.subjects.PublishSubject;
 import nom.bruno.tasksapp.R;
 import nom.bruno.tasksapp.models.Task;
+import nom.bruno.tasksapp.models.TaskUpdate;
+import nom.bruno.tasksapp.models.TaskUpdateParameters;
 
 public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> {
     private AdapterState mState = new AdapterState();
 
     private PublishSubject<TasksAdapter.ViewHolder> deleteSubject = PublishSubject.create();
 
-    private PublishSubject<Task> saveSubject = PublishSubject.create();
+    private PublishSubject<TaskUpdateParameters> saveSubject = PublishSubject.create();
 
     private RecyclerView mRecyclerView;
 
@@ -42,7 +44,7 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
         return deleteSubject;
     }
 
-    public Observable<Task> onSave() {
+    public Observable<TaskUpdateParameters> onUpdate() {
         return saveSubject;
     }
 
@@ -110,16 +112,17 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
 
         RxView.clicks(viewHolder.mEditSaveButton)
                 .takeUntil(RxView.detaches(recyclerView))
-                .map(new Function<Object, Task>() {
+                .map(new Function<Object, TaskUpdateParameters>() {
                     @Override
-                    public Task apply(@NonNull Object o) throws Exception {
-                        Task task = new Task();
+                    public TaskUpdateParameters apply(@NonNull Object o) throws Exception {
+                        TaskUpdateParameters update = new TaskUpdateParameters();
+                        TaskUpdate taskUpdate = update.getUpdateData();
                         Task currentTask = mState.getSelectedTask();
-                        task.setId(currentTask.getId());
-                        task.setTitle(viewHolder.mTitleEditText.getText().toString());
-                        task.setDescription(viewHolder.mDescriptionEditText.getText().toString());
+                        update.setTaskId(currentTask.getId());
+                        taskUpdate.setTitle(viewHolder.mTitleEditText.getText().toString());
+                        taskUpdate.setDescription(viewHolder.mDescriptionEditText.getText().toString());
                         mState.clearSelectedTask();
-                        return task;
+                        return update;
                     }
                 })
                 .subscribe(saveSubject);

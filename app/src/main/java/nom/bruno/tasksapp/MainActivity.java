@@ -7,7 +7,6 @@ import android.support.v7.widget.DividerItemDecoration;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -18,6 +17,7 @@ import io.reactivex.functions.Function;
 import io.reactivex.schedulers.Schedulers;
 import nom.bruno.tasksapp.models.MyVoid;
 import nom.bruno.tasksapp.models.Task;
+import nom.bruno.tasksapp.models.TaskUpdateParameters;
 import nom.bruno.tasksapp.services.TaskService;
 import nom.bruno.tasksapp.view.adapters.TasksAdapter;
 
@@ -93,12 +93,25 @@ public class MainActivity extends AppCompatActivity {
                     }
                 });
 
-        mAdapter.onSave()
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(new Consumer<Task>() {
+        mAdapter.onUpdate()
+                .observeOn(Schedulers.io())
+                .flatMap(new Function<TaskUpdateParameters, Observable<MyVoid>>() {
                     @Override
-                    public void accept(@NonNull Task task) throws Exception {
-                        mAdapter.updateTasks(Collections.singletonList(task));
+                    public Observable<MyVoid> apply(@NonNull TaskUpdateParameters updateDescription) throws Exception {
+                        return ts.updateTask(updateDescription.getTaskId(), updateDescription.getUpdateData());
+                    }
+                })
+                .flatMap(new Function<MyVoid, Observable<List<Task>>>() {
+                    @Override
+                    public Observable<List<Task>> apply(@NonNull MyVoid aVoid) throws Exception {
+                        return ts.getTasks();
+                    }
+                })
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(new Consumer<List<Task>>() {
+                    @Override
+                    public void accept(@NonNull List<Task> tasks) throws Exception {
+                        mAdapter.updateTasks(tasks);
                     }
                 });
     }
