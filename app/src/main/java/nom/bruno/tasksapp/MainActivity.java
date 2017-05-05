@@ -1,7 +1,6 @@
 package nom.bruno.tasksapp;
 
 import android.app.Activity;
-import android.content.Context;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.v4.content.ContextCompat;
@@ -14,7 +13,6 @@ import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
-import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 import android.widget.ImageButton;
 
@@ -61,7 +59,7 @@ public class MainActivity extends AppCompatActivity {
         DividerItemDecoration dividerItemDecoration = new DividerItemDecoration(rvTasks.getContext(),
                 layoutManager.getOrientation());
         rvTasks.addItemDecoration(dividerItemDecoration);
-        mAdapter = new TasksAdapter();
+        mAdapter = new TasksAdapter(this);
         mAdapter.bindRecyclerView(rvTasks);
         rvTasks.setLayoutManager(layoutManager);
 
@@ -154,7 +152,6 @@ public class MainActivity extends AppCompatActivity {
                 .doOnNext(new Consumer<TaskCreation>() {
                     @Override
                     public void accept(@NonNull TaskCreation taskCreation) throws Exception {
-                        hideKeyboard();
                         switchToDefaultState();
                     }
                 })
@@ -190,15 +187,12 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void hideKeyboard() {
-        View view = this.getCurrentFocus();
-        if (view != null) {
-            InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
-            imm.hideSoftInputFromWindow(view.getWindowToken(), 0);
-        }
+        Utils.hideKeyboard(this);
     }
 
     private void switchToDefaultState() {
         mState.setState(DEFAULT_STATE);
+        hideKeyboard();
         mAddTaskView.hideAllFields();
     }
 

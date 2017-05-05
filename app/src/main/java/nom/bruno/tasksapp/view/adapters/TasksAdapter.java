@@ -1,6 +1,7 @@
 package nom.bruno.tasksapp.view.adapters;
 
 import android.annotation.SuppressLint;
+import android.app.Activity;
 import android.content.Context;
 import android.support.annotation.NonNull;
 import android.support.v7.widget.RecyclerView;
@@ -27,11 +28,18 @@ import io.reactivex.functions.Consumer;
 import io.reactivex.functions.Function;
 import io.reactivex.subjects.PublishSubject;
 import nom.bruno.tasksapp.R;
+import nom.bruno.tasksapp.Utils;
 import nom.bruno.tasksapp.models.Task;
 import nom.bruno.tasksapp.models.TaskUpdate;
 import nom.bruno.tasksapp.models.TaskUpdateParameters;
 
 public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> {
+    private Activity mActivity;
+
+    public TasksAdapter(Activity activity) {
+        mActivity = activity;
+    }
+
     private AdapterState mState = new AdapterState();
 
     private PublishSubject<Task> deleteSubject = PublishSubject.create();
@@ -112,6 +120,12 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
 
         RxView.clicks(viewHolder.mEditSaveButton)
                 .takeUntil(RxView.detaches(recyclerView))
+                .doOnNext(new Consumer<Object>() {
+                    @Override
+                    public void accept(@NonNull Object o) throws Exception {
+                        Utils.hideKeyboard(mActivity);
+                    }
+                })
                 .map(new Function<Object, TaskUpdateParameters>() {
                     @Override
                     public TaskUpdateParameters apply(@NonNull Object o) throws Exception {
@@ -150,6 +164,7 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
                 .subscribe(new Consumer<Object>() {
                     @Override
                     public void accept(@NonNull Object o) throws Exception {
+                        Utils.hideKeyboard(mActivity);
                         viewHolder.showItemSelectedState();
                     }
                 });
