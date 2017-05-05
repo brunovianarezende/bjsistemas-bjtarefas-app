@@ -62,15 +62,15 @@
         android:layout_height="wrap_content"
         android:layout_marginLeft="8dp"
         android:layout_marginRight="8dp"
+        android:layout_marginTop="8dp"
         android:background="@android:color/transparent"
         android:contentDescription="@string/edit_task_save"
+        app:layout_constraintHorizontal_bias="0.501"
         app:layout_constraintHorizontal_chainStyle="packed"
         app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintRight_toLeftOf="@+id/tasks_add_task_cancel"
-        app:srcCompat="@android:drawable/ic_menu_save"
-        android:layout_marginTop="8dp"
         app:layout_constraintTop_toBottomOf="@+id/tasks_add_task_description"
-        app:layout_constraintHorizontal_bias="0.501" />
+        app:srcCompat="@drawable/ic_save_task" />
 
     <ImageButton
         android:id="@+id/tasks_add_task_cancel"
@@ -78,13 +78,13 @@
         android:layout_height="wrap_content"
         android:layout_marginEnd="8dp"
         android:layout_marginRight="8dp"
+        android:layout_marginTop="8dp"
         android:background="@android:color/transparent"
         android:contentDescription="@string/edit_task_cancel"
         app:layout_constraintLeft_toRightOf="@+id/tasks_add_task_save"
         app:layout_constraintRight_toRightOf="parent"
-        app:srcCompat="@android:drawable/ic_menu_close_clear_cancel"
-        android:layout_marginTop="8dp"
-        app:layout_constraintTop_toBottomOf="@+id/tasks_add_task_description" />
+        app:layout_constraintTop_toBottomOf="@+id/tasks_add_task_description"
+        app:srcCompat="@drawable/ic_cancel_saving" />
 
     <android.support.v7.widget.RecyclerView
         android:id="@+id/tasks_recycler_view"

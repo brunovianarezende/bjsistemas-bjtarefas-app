@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.content.Context;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
+import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.DividerItemDecoration;
 import android.support.v7.widget.LinearLayoutManager;
@@ -52,6 +53,7 @@ public class MainActivity extends AppCompatActivity {
         mAddTaskView = new AddTaskView(this);
 
         Toolbar toolbar = (Toolbar) findViewById(R.id.tasks_toolbar);
+        toolbar.setTitleTextColor(ContextCompat.getColor(this, R.color.colorToolbarTitle));
         setSupportActionBar(toolbar);
 
         final RecyclerView rvTasks = (RecyclerView) findViewById(R.id.tasks_recycler_view);
