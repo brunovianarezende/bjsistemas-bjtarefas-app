@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">BJTarefas</string>
+    <string name="add_task">Nova Tarefa</string>
+    <string name="delete_task">Apagar Tarefa</string>
+    <string name="edit_task">Editar Tarefa</string>
+    <string name="edit_task_cancel">Editar Tarefa - Cancelar</string>
+    <string name="edit_task_save">Editar Tarefa - Salvar</string>
+    <string name="task_description">Descrição</string>
+    <string name="task_title">Título</string>
+</resources>
