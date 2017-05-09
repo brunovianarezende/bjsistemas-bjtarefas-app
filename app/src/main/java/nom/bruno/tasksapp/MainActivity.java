@@ -42,6 +42,7 @@ public class MainActivity extends AppCompatActivity {
     private ActivityState mState = new ActivityState();
     private PublishSubject<Object> mAddTaskSubject = PublishSubject.create();
     private AddTaskView mAddTaskView;
+    private PublishSubject<Object> mUpdateTasksSubject = PublishSubject.create();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -80,20 +81,8 @@ public class MainActivity extends AppCompatActivity {
             mAdapter.deserializeState(savedInstanceState.getString(mAdapter.getClass().getCanonicalName()));
         }
 
-        Observable.interval(1, TimeUnit.MINUTES)
-                .flatMap(new Function<Long, Observable<List<Task>>>() {
-                    @Override
-                    public Observable<List<Task>> apply(@NonNull Long aLong) throws Exception {
-                        return ts.getTasks();
-                    }
-                })
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(new Consumer<List<Task>>() {
-                    @Override
-                    public void accept(@NonNull List<Task> tasks) throws Exception {
-                        mAdapter.updateTasks(tasks);
-                    }
-                });
+        Observable.interval(30, TimeUnit.SECONDS)
+                .subscribe(mUpdateTasksSubject);
 
         mAdapter.onDeleteSingle()
                 .observeOn(Schedulers.io())
@@ -103,19 +92,7 @@ public class MainActivity extends AppCompatActivity {
                         return ts.deleteTask(task.getId());
                     }
                 })
-                .flatMap(new Function<MyVoid, Observable<List<Task>>>() {
-                    @Override
-                    public Observable<List<Task>> apply(@NonNull MyVoid aVoid) throws Exception {
-                        return ts.getTasks();
-                    }
-                })
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(new Consumer<List<Task>>() {
-                    @Override
-                    public void accept(@NonNull List<Task> tasks) throws Exception {
-                        mAdapter.updateTasks(tasks);
-                    }
-                });
+                .subscribe(mUpdateTasksSubject);
 
         mAdapter.onUpdate()
                 .observeOn(Schedulers.io())
@@ -125,19 +102,7 @@ public class MainActivity extends AppCompatActivity {
                         return ts.updateTask(updateDescription.getTaskId(), updateDescription.getUpdateData());
                     }
                 })
-                .flatMap(new Function<MyVoid, Observable<List<Task>>>() {
-                    @Override
-                    public Observable<List<Task>> apply(@NonNull MyVoid aVoid) throws Exception {
-                        return ts.getTasks();
-                    }
-                })
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(new Consumer<List<Task>>() {
-                    @Override
-                    public void accept(@NonNull List<Task> tasks) throws Exception {
-                        mAdapter.updateTasks(tasks);
-                    }
-                });
+                .subscribe(mUpdateTasksSubject);
 
         mAddTaskSubject.observeOn(AndroidSchedulers.mainThread())
                 .subscribe(new Consumer<Object>() {
@@ -162,9 +127,23 @@ public class MainActivity extends AppCompatActivity {
                         return ts.addTask(taskCreation);
                     }
                 })
-                .flatMap(new Function<Integer, Observable<List<Task>>>() {
+                .subscribe(mUpdateTasksSubject);
+
+        mAddTaskView.getCancelAddNewTaskClicks()
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(new Consumer<Object>() {
                     @Override
-                    public Observable<List<Task>> apply(@NonNull Integer newId) throws Exception {
+                    public void accept(@NonNull Object o) throws Exception {
+                        switchToDefaultState();
+                    }
+                });
+
+        mUpdateTasksSubject
+                .debounce(100, TimeUnit.MILLISECONDS)
+                .observeOn(Schedulers.io())
+                .flatMap(new Function<Object, Observable<List<Task>>>() {
+                    @Override
+                    public Observable<List<Task>> apply(@io.reactivex.annotations.NonNull Object o) throws Exception {
                         return ts.getTasks();
                     }
                 })
@@ -173,15 +152,6 @@ public class MainActivity extends AppCompatActivity {
                     @Override
                     public void accept(@NonNull List<Task> tasks) throws Exception {
                         mAdapter.updateTasks(tasks);
-                    }
-                });
-
-        mAddTaskView.getCancelAddNewTaskClicks()
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(new Consumer<Object>() {
-                    @Override
-                    public void accept(@NonNull Object o) throws Exception {
-                        switchToDefaultState();
                     }
                 });
     }
