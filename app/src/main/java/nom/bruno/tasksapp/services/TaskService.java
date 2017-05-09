@@ -39,13 +39,13 @@ public class TaskService {
         return retrofit.create(TaskApi.class);
     }
 
-    private <T> Observable<T> executeInCorrectApi(final Function<TaskApi, Observable<T>> bla) {
+    private <T> Observable<T> executeInCorrectApi(final Function<TaskApi, Observable<T>> callable) {
         return Observable
                 .fromIterable(mCandidates)
                 .concatMap(new Function<TaskApi, Observable<T>>() {
                     @Override
                     public Observable<T> apply(@io.reactivex.annotations.NonNull TaskApi taskApi) throws Exception {
-                        return bla.apply(taskApi).onErrorResumeNext(new Function<Throwable, ObservableSource<? extends T>>() {
+                        return callable.apply(taskApi).onErrorResumeNext(new Function<Throwable, ObservableSource<? extends T>>() {
                             @Override
                             public ObservableSource<? extends T> apply(@io.reactivex.annotations.NonNull Throwable throwable) throws Exception {
                                 return Observable.empty();
@@ -69,37 +69,6 @@ public class TaskService {
                 return listResult.getData();
             }
         });
-
-//        return Observable
-//                .fromIterable(mCandidates)
-//                .concatMap(new Function<TaskApi, Observable<Result<List<Task>>>>() {
-//                    @Override
-//                    public Observable<Result<List<Task>>> apply(@io.reactivex.annotations.NonNull TaskApi taskApi) throws Exception {
-//                        return taskApi.getTasks().onErrorResumeNext(new Function<Throwable, ObservableSource<? extends Result<List<Task>>>>() {
-//                            @Override
-//                            public ObservableSource<? extends Result<List<Task>>> apply(@io.reactivex.annotations.NonNull Throwable throwable) throws Exception {
-//                                return Observable.empty();
-//                            }
-//                        });
-//                    }
-//                })
-//                .first(new Result<List<Task>>())
-//                .map(new Function<Result<List<Task>>, List<Task>>() {
-//                    @Override
-//                    public List<Task> apply(@io.reactivex.annotations.NonNull Result<List<Task>> listResult) throws Exception {
-//                        return listResult.getData();
-//                    }
-//                }).toObservable();
-
-//        return mExternalApi.getTasks()
-//                .onErrorResumeNext(mInternalApi.getTasks())
-//                .map(new Function<Result<List<Task>>, List<Task>>() {
-//
-//                    @Override
-//                    public List<Task> apply(@NonNull Result<List<Task>> listResult) throws Exception {
-//                        return listResult.getData();
-//                    }
-//                });
     }
 
     public Observable<MyVoid> deleteTask(final int id) {
@@ -114,57 +83,34 @@ public class TaskService {
                 return MyVoid.INSTANCE;
             }
         });
-//        return Observable
-//                .fromIterable(mCandidates)
-//                .concatMap(new Function<TaskApi, Observable<Result<Void>>>() {
-//                    @Override
-//                    public Observable<Result<Void>> apply(@io.reactivex.annotations.NonNull TaskApi taskApi) throws Exception {
-//                        return taskApi.deleteTask(id).onErrorResumeNext(new Function<Throwable, ObservableSource<? extends Result<Void>>>() {
-//                            @Override
-//                            public ObservableSource<? extends Result<Void>> apply(@io.reactivex.annotations.NonNull Throwable throwable) throws Exception {
-//                                return Observable.empty();
-//                            }
-//                        });
-//                    }
-//                })
-//                .first(new Result<Void>())
-//                .map(new Function<Result<Void>, MyVoid>() {
-//                    @Override
-//                    public MyVoid apply(@io.reactivex.annotations.NonNull Result<Void> voidResult) throws Exception {
-//                        return MyVoid.INSTANCE;
-//                    }
-//                }).toObservable();
-
-//        return mExternalApi.deleteTask(id)
-//                .onErrorResumeNext(mInternalApi.deleteTask(id))
-//                .map(new Function<Result<Void>, MyVoid>() {
-//                    @Override
-//                    public MyVoid apply(@NonNull Result<Void> voidResult) throws Exception {
-//                        return MyVoid.INSTANCE;
-//                    }
-//                });
     }
 
-    public Observable<MyVoid> updateTask(int id, TaskUpdate taskUpdate) {
-        return mExternalApi.updateTask(id, taskUpdate)
-                .onErrorResumeNext(mInternalApi.updateTask(id, taskUpdate))
-                .map(new Function<Result<Void>, MyVoid>() {
-                    @Override
-                    public MyVoid apply(@NonNull Result<Void> voidResult) throws Exception {
-                        return MyVoid.INSTANCE;
-                    }
-                });
+    public Observable<MyVoid> updateTask(final int id, final TaskUpdate taskUpdate) {
+        return executeInCorrectApi(new Function<TaskApi, Observable<Result<Void>>>() {
+            @Override
+            public Observable<Result<Void>> apply(@io.reactivex.annotations.NonNull TaskApi taskApi) throws Exception {
+                return taskApi.updateTask(id, taskUpdate);
+            }
+        }).map(new Function<Result<Void>, MyVoid>() {
+            @Override
+            public MyVoid apply(@io.reactivex.annotations.NonNull Result<Void> voidResult) throws Exception {
+                return MyVoid.INSTANCE;
+            }
+        });
     }
 
-    public Observable<Integer> addTask(TaskCreation taskCreation) {
-        return mExternalApi.addTask(taskCreation)
-                .onErrorResumeNext(mInternalApi.addTask(taskCreation))
-                .map(new Function<Result<Integer>, Integer>() {
-                    @Override
-                    public Integer apply(@NonNull Result<Integer> integerResult) throws Exception {
-                        return integerResult.getData();
-                    }
-                });
+    public Observable<Integer> addTask(final TaskCreation taskCreation) {
+        return executeInCorrectApi(new Function<TaskApi, Observable<Result<Integer>>>() {
+            @Override
+            public Observable<Result<Integer>> apply(@io.reactivex.annotations.NonNull TaskApi taskApi) throws Exception {
+                return taskApi.addTask(taskCreation);
+            }
+        }).map(new Function<Result<Integer>, Integer>() {
+            @Override
+            public Integer apply(@NonNull Result<Integer> integerResult) throws Exception {
+                return integerResult.getData();
+            }
+        });
     }
 
     public interface TaskApi {
