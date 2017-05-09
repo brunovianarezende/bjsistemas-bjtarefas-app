@@ -2,9 +2,14 @@ package nom.bruno.tasksapp.services;
 
 import android.support.annotation.NonNull;
 
+import java.util.Arrays;
 import java.util.List;
 
+import io.reactivex.Notification;
 import io.reactivex.Observable;
+import io.reactivex.ObservableSource;
+import io.reactivex.ObservableTransformer;
+import io.reactivex.functions.Consumer;
 import io.reactivex.functions.Function;
 import io.reactivex.schedulers.Schedulers;
 import nom.bruno.tasksapp.Constants;
@@ -26,6 +31,7 @@ import retrofit2.http.Path;
 public class TaskService {
     private static TaskApi mInternalApi = createTaskApi(Constants.INTERNAL_SERVICE_URL);
     private static TaskApi mExternalApi = createTaskApi(Constants.EXTERNAL_SERVICE_URL);
+    private List<TaskApi> mCandidates = Arrays.asList(mExternalApi, mInternalApi);
 
     private static TaskApi createTaskApi(String url) {
         Retrofit retrofit = new Retrofit.Builder()
@@ -37,15 +43,36 @@ public class TaskService {
     }
 
     public Observable<List<Task>> getTasks() {
-        return mExternalApi.getTasks()
-                .onErrorResumeNext(mInternalApi.getTasks())
-                .map(new Function<Result<List<Task>>, List<Task>>() {
-
+        return Observable
+                .fromIterable(mCandidates)
+                .concatMap(new Function<TaskApi, Observable<Result<List<Task>>>>() {
                     @Override
-                    public List<Task> apply(@NonNull Result<List<Task>> listResult) throws Exception {
+                    public Observable<Result<List<Task>>> apply(@io.reactivex.annotations.NonNull TaskApi taskApi) throws Exception {
+                        return taskApi.getTasks().onErrorResumeNext(new Function<Throwable, ObservableSource<? extends Result<List<Task>>>>() {
+                            @Override
+                            public ObservableSource<? extends Result<List<Task>>> apply(@io.reactivex.annotations.NonNull Throwable throwable) throws Exception {
+                                return Observable.empty();
+                            }
+                        });
+                    }
+                })
+                .first(new Result<List<Task>>())
+                .map(new Function<Result<List<Task>>, List<Task>>() {
+                    @Override
+                    public List<Task> apply(@io.reactivex.annotations.NonNull Result<List<Task>> listResult) throws Exception {
                         return listResult.getData();
                     }
-                });
+                }).toObservable();
+
+//        return mExternalApi.getTasks()
+//                .onErrorResumeNext(mInternalApi.getTasks())
+//                .map(new Function<Result<List<Task>>, List<Task>>() {
+//
+//                    @Override
+//                    public List<Task> apply(@NonNull Result<List<Task>> listResult) throws Exception {
+//                        return listResult.getData();
+//                    }
+//                });
     }
 
     public Observable<MyVoid> deleteTask(int id) {
