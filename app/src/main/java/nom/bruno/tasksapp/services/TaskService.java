@@ -28,6 +28,19 @@ import retrofit2.http.PUT;
 import retrofit2.http.Path;
 
 public class TaskService {
+    private static TaskService myInstance;
+
+    private TaskService() {
+
+    }
+
+    public static TaskService getInstance() {
+        if (myInstance == null) {
+            myInstance = new TaskService();
+        }
+        return myInstance;
+    }
+
     private TaskApiExecutor executor = new TaskApiExecutor();
 
     public Observable<List<Task>> getTasks() {

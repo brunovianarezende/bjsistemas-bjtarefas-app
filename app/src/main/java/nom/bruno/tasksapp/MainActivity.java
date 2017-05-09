@@ -63,7 +63,7 @@ public class MainActivity extends AppCompatActivity {
         mAdapter.bindRecyclerView(rvTasks);
         rvTasks.setLayoutManager(layoutManager);
 
-        final TaskService ts = new TaskService();
+        final TaskService ts = TaskService.getInstance();
 
         if (savedInstanceState == null) {
             ts.getTasks()
