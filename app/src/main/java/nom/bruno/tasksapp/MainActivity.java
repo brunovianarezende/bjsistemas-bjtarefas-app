@@ -26,6 +26,7 @@ import java.util.concurrent.TimeUnit;
 import io.reactivex.Observable;
 import io.reactivex.ObservableSource;
 import io.reactivex.android.schedulers.AndroidSchedulers;
+import io.reactivex.functions.Action;
 import io.reactivex.functions.Consumer;
 import io.reactivex.functions.Function;
 import io.reactivex.schedulers.Schedulers;
@@ -81,7 +82,7 @@ public class MainActivity extends AppCompatActivity {
             mAdapter.deserializeState(savedInstanceState.getString(mAdapter.getClass().getCanonicalName()));
         }
 
-        restartRefreshInterval();
+        smartMethodToUpdateScreenEach30SecondsIfNothingElseHappensBefore();
 
         mAdapter.onDeleteSingle()
                 .observeOn(Schedulers.io())
@@ -139,12 +140,6 @@ public class MainActivity extends AppCompatActivity {
 
         mUpdateTasksSubject
                 .debounce(100, TimeUnit.MILLISECONDS)
-                .doOnNext(new Consumer<Object>() {
-                    @Override
-                    public void accept(@io.reactivex.annotations.NonNull Object o) throws Exception {
-                        restartRefreshInterval();
-                    }
-                })
                 .observeOn(Schedulers.io())
                 .flatMap(new Function<Object, Observable<List<Task>>>() {
                     @Override
@@ -161,7 +156,7 @@ public class MainActivity extends AppCompatActivity {
                 });
     }
 
-    private void restartRefreshInterval() {
+    private void smartMethodToUpdateScreenEach30SecondsIfNothingElseHappensBefore() {
         /*
          1. if the user doesn't do any interaction in the interface, in 30 seconds the observable
             bellow will emit an item to mUpdateTasksSubject.
@@ -169,14 +164,25 @@ public class MainActivity extends AppCompatActivity {
             the execution of this observable.
          2. if the user do any interaction, mUpdateTasksSubject will emit an item and the observable
             bellow will stop its execution.
-         3. It is up to other part of the code to call this method again and create a new observable
+         3. when the observable complete, a new one will be created with the same behaviour.
          */
-        Observable.interval(30, TimeUnit.SECONDS).takeUntil(mUpdateTasksSubject).subscribe(new Consumer<Long>() {
-            @Override
-            public void accept(@io.reactivex.annotations.NonNull Long aLong) throws Exception {
-                mUpdateTasksSubject.onNext("");
-            }
-        });
+        Observable.interval(30, TimeUnit.SECONDS)
+                .takeUntil(mUpdateTasksSubject)
+                .doOnComplete(new Action() {
+                    @Override
+                    public void run() throws Exception {
+                        smartMethodToUpdateScreenEach30SecondsIfNothingElseHappensBefore();
+                    }
+                })
+                .subscribe(new Consumer<Long>() {
+                    @Override
+                    public void accept(@io.reactivex.annotations.NonNull Long aLong) throws Exception {
+                        // ATTENTION: if I subscribe mUpdateTasksSubject directly, when the
+                        // intervalObservable completes, the mUpdateTasksSubject will complete too,
+                        // that's why I just call onNext in the subject.
+                        mUpdateTasksSubject.onNext("");
+                    }
+                });
     }
 
     private void hideKeyboard() {
