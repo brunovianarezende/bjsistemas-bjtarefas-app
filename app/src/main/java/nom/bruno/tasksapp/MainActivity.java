@@ -44,6 +44,7 @@ public class MainActivity extends AppCompatActivity {
     private PublishSubject<Object> mAddTaskSubject = PublishSubject.create();
     private AddTaskView mAddTaskView;
     private PublishSubject<Object> mUpdateTasksSubject = PublishSubject.create();
+    private boolean mContinueUpdatingScreen = true;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -139,6 +140,12 @@ public class MainActivity extends AppCompatActivity {
                 });
 
         mUpdateTasksSubject
+                .doOnComplete(new Action() {
+                    @Override
+                    public void run() throws Exception {
+                        mContinueUpdatingScreen = false;
+                    }
+                })
                 .debounce(100, TimeUnit.MILLISECONDS)
                 .observeOn(Schedulers.io())
                 .flatMap(new Function<Object, Observable<List<Task>>>() {
@@ -171,7 +178,12 @@ public class MainActivity extends AppCompatActivity {
                 .doOnComplete(new Action() {
                     @Override
                     public void run() throws Exception {
-                        smartMethodToUpdateScreenEach30SecondsIfNothingElseHappensBefore();
+                        if (mContinueUpdatingScreen) {
+                            // takeUntil will emit an item when mUpdateTasksSubject completes and
+                            // we'll enter in an infinite loop here, so we are setting a flag to
+                            // avoid that.
+                            smartMethodToUpdateScreenEach30SecondsIfNothingElseHappensBefore();
+                        }
                     }
                 })
                 .subscribe(new Consumer<Long>() {
