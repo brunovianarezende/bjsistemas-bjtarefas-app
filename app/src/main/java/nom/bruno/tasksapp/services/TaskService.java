@@ -2,10 +2,15 @@ package nom.bruno.tasksapp.services;
 
 import android.support.annotation.NonNull;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import io.reactivex.Observable;
 import io.reactivex.ObservableSource;
@@ -17,6 +22,7 @@ import nom.bruno.tasksapp.models.Result;
 import nom.bruno.tasksapp.models.Task;
 import nom.bruno.tasksapp.models.TaskCreation;
 import nom.bruno.tasksapp.models.TaskUpdate;
+import nom.bruno.tasksapp.models.TasksDelta;
 import retrofit2.Retrofit;
 import retrofit2.adapter.rxjava2.RxJava2CallAdapterFactory;
 import retrofit2.converter.gson.GsonConverterFactory;
@@ -29,6 +35,7 @@ import retrofit2.http.Path;
 
 public class TaskService {
     private static TaskService myInstance;
+    private List<Task> mCurrentTasks = new ArrayList<>();
 
     private TaskService() {
 
@@ -44,6 +51,21 @@ public class TaskService {
     private TaskApiExecutor executor = new TaskApiExecutor();
 
     public Observable<List<Task>> getTasks() {
+        return executor.call(new Function<TaskApi, Observable<Result<List<Task>>>>() {
+            @Override
+            public Observable<Result<List<Task>>> apply(@io.reactivex.annotations.NonNull TaskApi taskApi) throws Exception {
+                return taskApi.getTasks();
+            }
+        }).map(new Function<Result<List<Task>>, List<Task>>() {
+            @Override
+            public List<Task> apply(@io.reactivex.annotations.NonNull Result<List<Task>> listResult) throws Exception {
+                mCurrentTasks = listResult.getData();
+                return listResult.getData();
+            }
+        });
+    }
+
+    private Observable<List<Task>> getTasks2() {
         return executor.call(new Function<TaskApi, Observable<Result<List<Task>>>>() {
             @Override
             public Observable<Result<List<Task>>> apply(@io.reactivex.annotations.NonNull TaskApi taskApi) throws Exception {
@@ -97,6 +119,37 @@ public class TaskService {
                 return integerResult.getData();
             }
         });
+    }
+
+    public Observable<TasksDelta> getTasksDelta() {
+        return getTasks2()
+                .map(new Function<List<Task>, TasksDelta>() {
+                    @Override
+                    public TasksDelta apply(@io.reactivex.annotations.NonNull List<Task> tasks) throws Exception {
+                        TasksDelta result = new TasksDelta();
+                        Map<Integer, Task> oldTasksMapping = new HashMap<>();
+                        for (Task task : mCurrentTasks) {
+                            oldTasksMapping.put(task.getId(), task);
+                        }
+                        Map<Integer, Task> newTasksMapping = new HashMap<>();
+                        for (Task task : tasks) {
+                            newTasksMapping.put(task.getId(), task);
+                            if (!oldTasksMapping.containsKey(task.getId())) {
+                                result.getNewTasks().add(task);
+                            } else {
+                                Task oldTask = oldTasksMapping.get(task.getId());
+                                if (!oldTask.getDescription().equals(task.getDescription())
+                                        || !oldTask.getTitle().equals(task.getTitle())) {
+                                    result.getUpdatedTasks().add(task);
+                                }
+                            }
+                        }
+                        Set<Integer> deletedIds = new HashSet<Integer>(oldTasksMapping.keySet());
+                        deletedIds.removeAll(newTasksMapping.keySet());
+                        result.getDeletedTasksIds().addAll(deletedIds);
+                        return result;
+                    }
+                });
     }
 
     public interface TaskApi {

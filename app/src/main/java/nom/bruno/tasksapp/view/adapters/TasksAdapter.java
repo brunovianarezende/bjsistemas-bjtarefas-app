@@ -84,6 +84,10 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
         notifyDataSetChanged();
     }
 
+    public List<Task> getTasks() {
+        return mState.getTasks();
+    }
+
     private void focusOn(ViewHolder viewHolder) {
         Task relatedTask = mState.getTask(viewHolder.getAdapterPosition());
 
@@ -355,6 +359,10 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
 
         boolean contains(Task task) {
             return task != null && mTaskId2Position.containsKey(task.getId());
+        }
+
+        public List<Task> getTasks() {
+            return mTasks;
         }
     }
 }
