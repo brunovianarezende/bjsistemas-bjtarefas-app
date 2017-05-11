@@ -46,7 +46,7 @@ import nom.bruno.tasksapp.services.TaskService;
 import nom.bruno.tasksapp.view.adapters.TasksAdapter;
 
 public class MainActivity extends AppCompatActivity {
-    private int mId = 0;
+    private int mId = 1;
     private TasksAdapter mAdapter = null;
     private ActivityState mState = new ActivityState();
     private PublishSubject<Object> mAddTaskSubject = PublishSubject.create();
@@ -195,7 +195,8 @@ public class MainActivity extends AppCompatActivity {
         }
         NotificationCompat.Builder mBuilder =
                 new NotificationCompat.Builder(this)
-                        .setSmallIcon(R.drawable.ic_task_notification);
+                        .setSmallIcon(R.drawable.ic_task_notification)
+                        .setAutoCancel(true);
         if (tasksDelta.getTotalNumberOfChanges() == 1 && tasksDelta.getNewTasks().size() == 1) {
             Task task = tasksDelta.getNewTasks().get(0);
             mBuilder.setContentTitle(task.getTitle());
@@ -204,6 +205,8 @@ public class MainActivity extends AppCompatActivity {
             String tasksUpdatedPrefix = getString(R.string.notification_tasks_updated);
             mBuilder.setContentTitle(tasksUpdatedPrefix + ": " + tasksDelta.getTotalNumberOfChanges());
         }
+        // for some reason the number is not showing...
+        mBuilder.setNumber(tasksDelta.getTotalNumberOfChanges());
         // Creates an explicit intent for an Activity in your app
         Intent resultIntent = new Intent(this, MainActivity.class);
 
@@ -225,7 +228,7 @@ public class MainActivity extends AppCompatActivity {
         NotificationManager mNotificationManager =
                 (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         // mId allows you to update the notification later on.
-        mNotificationManager.notify(mId++, mBuilder.build());
+        mNotificationManager.notify(mId, mBuilder.build());
     }
 
     private void smartMethodToUpdateScreenEach30SecondsIfNothingElseHappensBefore() {
