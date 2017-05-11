@@ -1,6 +1,5 @@
 package nom.bruno.tasksapp.activities;
 
-import android.app.Activity;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
@@ -34,9 +33,11 @@ import io.reactivex.ObservableSource;
 import io.reactivex.android.schedulers.AndroidSchedulers;
 import io.reactivex.functions.Consumer;
 import io.reactivex.functions.Function;
+import io.reactivex.functions.Predicate;
 import io.reactivex.schedulers.Schedulers;
 import io.reactivex.subjects.PublishSubject;
 import nom.bruno.tasksapp.R;
+import nom.bruno.tasksapp.TasksApplication;
 import nom.bruno.tasksapp.Utils;
 import nom.bruno.tasksapp.models.MyVoid;
 import nom.bruno.tasksapp.models.Task;
@@ -47,12 +48,13 @@ import nom.bruno.tasksapp.services.TaskService;
 import nom.bruno.tasksapp.view.adapters.TasksAdapter;
 
 public class MainActivity extends AppCompatActivity {
-    private int mId = 1;
+    private static final int NOTIFICATION_ID = 1;
     private TasksAdapter mAdapter = null;
     private ActivityState mState = new ActivityState();
     private PublishSubject<Object> mAddTaskSubject = PublishSubject.create();
     private AddTaskView mAddTaskView;
     private PublishSubject<Object> mUpdateTasksSubject = PublishSubject.create();
+    private PublishSubject<Object> mActivityIsDestroyed = PublishSubject.create();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -173,8 +175,22 @@ public class MainActivity extends AppCompatActivity {
                 });
     }
 
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        mActivityIsDestroyed.onNext("");
+    }
+
     private void startNotificationHandler(final TaskService ts) {
+        final TasksApplication app = (TasksApplication) getApplication();
         Observable.interval(30, TimeUnit.SECONDS)
+                .takeUntil(isDestroyedObservable())
+                .filter(new Predicate<Long>() {
+                    @Override
+                    public boolean test(@io.reactivex.annotations.NonNull Long aLong) throws Exception {
+                        return !app.isAppVisible();
+                    }
+                })
                 .flatMap(new Function<Long, Observable<TasksDelta>>() {
                     @Override
                     public Observable<TasksDelta> apply(@io.reactivex.annotations.NonNull Long aLong) throws Exception {
@@ -228,7 +244,7 @@ public class MainActivity extends AppCompatActivity {
         NotificationManager mNotificationManager =
                 (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         // mId allows you to update the notification later on.
-        mNotificationManager.notify(mId, mBuilder.build());
+        mNotificationManager.notify(NOTIFICATION_ID, mBuilder.build());
     }
 
     private void updateScreenIn30SecondsIfNothingElseHappensBefore() {
@@ -336,15 +352,17 @@ public class MainActivity extends AppCompatActivity {
         private final Observable<Object> mSaveNewTaskClicks;
         private final Observable<Object> mCancelAddNewTaskClicks;
 
-        public AddTaskView(Activity activity) {
+        public AddTaskView(MainActivity activity) {
             mTitleEditText = (EditText) activity.findViewById(R.id.tasks_add_task_title);
             mDescriptionEditText = (EditText) activity.findViewById(R.id.tasks_add_task_description);
             mAddSaveButton = (ImageButton) activity.findViewById(R.id.tasks_add_task_save);
             mAddCancelButton = (ImageButton) activity.findViewById(R.id.tasks_add_task_cancel);
             allItems = Arrays.asList(mTitleEditText, mDescriptionEditText, mAddSaveButton, mAddCancelButton);
 
-            mSaveNewTaskClicks = RxView.clicks(mAddSaveButton);
-            mCancelAddNewTaskClicks = RxView.clicks(mAddCancelButton);
+            mSaveNewTaskClicks = RxView.clicks(mAddSaveButton)
+                    .takeUntil(activity.isDestroyedObservable());
+            mCancelAddNewTaskClicks = RxView.clicks(mAddCancelButton)
+                    .takeUntil(activity.isDestroyedObservable());
         }
 
         public Observable<TaskCreation> newTaskData() {
@@ -383,6 +401,10 @@ public class MainActivity extends AppCompatActivity {
             taskData.setDescription(mDescriptionEditText.getText().toString());
             return taskData;
         }
+    }
+
+    private ObservableSource<Object> isDestroyedObservable() {
+        return mActivityIsDestroyed;
     }
 
     private static final int DEFAULT_STATE = 0;
