@@ -32,7 +32,6 @@ import java.util.concurrent.TimeUnit;
 import io.reactivex.Observable;
 import io.reactivex.ObservableSource;
 import io.reactivex.android.schedulers.AndroidSchedulers;
-import io.reactivex.functions.Action;
 import io.reactivex.functions.Consumer;
 import io.reactivex.functions.Function;
 import io.reactivex.schedulers.Schedulers;
@@ -54,7 +53,6 @@ public class MainActivity extends AppCompatActivity {
     private PublishSubject<Object> mAddTaskSubject = PublishSubject.create();
     private AddTaskView mAddTaskView;
     private PublishSubject<Object> mUpdateTasksSubject = PublishSubject.create();
-    private boolean mContinueUpdatingScreen = true;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -93,7 +91,7 @@ public class MainActivity extends AppCompatActivity {
             mAdapter.deserializeState(savedInstanceState.getString(mAdapter.getClass().getCanonicalName()));
         }
 
-        smartMethodToUpdateScreenEach30SecondsIfNothingElseHappensBefore();
+        updateScreenIn30SecondsIfNothingElseHappensBefore();
 
         startNotificationHandler(ts);
 
@@ -152,13 +150,13 @@ public class MainActivity extends AppCompatActivity {
                 });
 
         mUpdateTasksSubject
-                .doOnComplete(new Action() {
+                .debounce(100, TimeUnit.MILLISECONDS)
+                .doOnNext(new Consumer<Object>() {
                     @Override
-                    public void run() throws Exception {
-                        mContinueUpdatingScreen = false;
+                    public void accept(@io.reactivex.annotations.NonNull Object o) throws Exception {
+                        updateScreenIn30SecondsIfNothingElseHappensBefore();
                     }
                 })
-                .debounce(100, TimeUnit.MILLISECONDS)
                 .observeOn(Schedulers.io())
                 .flatMap(new Function<Object, Observable<List<Task>>>() {
                     @Override
@@ -233,7 +231,7 @@ public class MainActivity extends AppCompatActivity {
         mNotificationManager.notify(mId, mBuilder.build());
     }
 
-    private void smartMethodToUpdateScreenEach30SecondsIfNothingElseHappensBefore() {
+    private void updateScreenIn30SecondsIfNothingElseHappensBefore() {
         /*
          1. if the user doesn't do any interaction in the interface, in 30 seconds the observable
             bellow will emit an item to mUpdateTasksSubject.
@@ -241,21 +239,20 @@ public class MainActivity extends AppCompatActivity {
             the execution of this observable.
          2. if the user do any interaction, mUpdateTasksSubject will emit an item and the observable
             bellow will stop its execution.
-         3. when the observable complete, a new one will be created with the same behaviour.
+         3. mUpdateTasksSubject will call this function again and restart the process
+
+         Note that it's very hard to use takeUntil and doOnComplete to restart this method since
+         when mUpdateTasksSubject is completed it will emit an item and the following will happen:
+         1. this method will be called again
+         2. since mUpdateTasksSubject is completed, takeUntil will emit an item
+         3. the doOnComplete block will execute again
+         4. this method will be called again. Go to step 1 above.
+
+         instead of trying to be smart and workaround this I'll let mUpdateTasksSubject restart the
+         process.
          */
         Observable.interval(30, TimeUnit.SECONDS)
                 .takeUntil(mUpdateTasksSubject)
-                .doOnComplete(new Action() {
-                    @Override
-                    public void run() throws Exception {
-                        if (mContinueUpdatingScreen) {
-                            // takeUntil will emit an item when mUpdateTasksSubject completes and
-                            // we'll enter in an infinite loop here, so we are setting a flag to
-                            // avoid that.
-                            smartMethodToUpdateScreenEach30SecondsIfNothingElseHappensBefore();
-                        }
-                    }
-                })
                 .subscribe(new Consumer<Long>() {
                     @Override
                     public void accept(@io.reactivex.annotations.NonNull Long aLong) throws Exception {
