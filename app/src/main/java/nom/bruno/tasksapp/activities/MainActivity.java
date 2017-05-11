@@ -1,4 +1,4 @@
-package nom.bruno.tasksapp;
+package nom.bruno.tasksapp.activities;
 
 import android.app.Activity;
 import android.app.NotificationManager;
@@ -37,6 +37,8 @@ import io.reactivex.functions.Consumer;
 import io.reactivex.functions.Function;
 import io.reactivex.schedulers.Schedulers;
 import io.reactivex.subjects.PublishSubject;
+import nom.bruno.tasksapp.R;
+import nom.bruno.tasksapp.Utils;
 import nom.bruno.tasksapp.models.MyVoid;
 import nom.bruno.tasksapp.models.Task;
 import nom.bruno.tasksapp.models.TaskCreation;
