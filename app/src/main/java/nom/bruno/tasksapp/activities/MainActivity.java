@@ -95,7 +95,7 @@ public class MainActivity extends AppCompatActivity {
 
         updateScreenIn30SecondsIfNothingElseHappensBefore();
 
-        startNotificationHandler(ts);
+//        startNotificationHandler(ts);
 
         mAdapter.onDeleteSingle()
                 .observeOn(Schedulers.io())
@@ -181,29 +181,29 @@ public class MainActivity extends AppCompatActivity {
         mActivityIsDestroyed.onNext("");
     }
 
-    private void startNotificationHandler(final TaskService ts) {
-        final TasksApplication app = (TasksApplication) getApplication();
-        Observable.interval(30, TimeUnit.SECONDS)
-                .takeUntil(isDestroyedObservable())
-                .filter(new Predicate<Long>() {
-                    @Override
-                    public boolean test(@io.reactivex.annotations.NonNull Long aLong) throws Exception {
-                        return !app.isAppVisible();
-                    }
-                })
-                .flatMap(new Function<Long, Observable<TasksDelta>>() {
-                    @Override
-                    public Observable<TasksDelta> apply(@io.reactivex.annotations.NonNull Long aLong) throws Exception {
-                        return ts.getTasksDelta();
-                    }
-                })
-                .subscribe(new Consumer<TasksDelta>() {
-                    @Override
-                    public void accept(@io.reactivex.annotations.NonNull TasksDelta tasksDelta) throws Exception {
-                        showTasksNotification(tasksDelta);
-                    }
-                });
-    }
+//    private void startNotificationHandler(final TaskService ts) {
+//        final TasksApplication app = (TasksApplication) getApplication();
+//        Observable.interval(30, TimeUnit.SECONDS)
+//                .takeUntil(isDestroyedObservable())
+//                .filter(new Predicate<Long>() {
+//                    @Override
+//                    public boolean test(@io.reactivex.annotations.NonNull Long aLong) throws Exception {
+//                        return !app.isAppVisible();
+//                    }
+//                })
+//                .flatMap(new Function<Long, Observable<TasksDelta>>() {
+//                    @Override
+//                    public Observable<TasksDelta> apply(@io.reactivex.annotations.NonNull Long aLong) throws Exception {
+//                        return ts.getTasksDelta();
+//                    }
+//                })
+//                .subscribe(new Consumer<TasksDelta>() {
+//                    @Override
+//                    public void accept(@io.reactivex.annotations.NonNull TasksDelta tasksDelta) throws Exception {
+//                        showTasksNotification(tasksDelta);
+//                    }
+//                });
+//    }
 
     private void showTasksNotification(TasksDelta tasksDelta) {
         if (tasksDelta.isEmpty()) {
