@@ -13,10 +13,15 @@ import android.content.Intent;
 import android.support.v4.app.NotificationCompat;
 import android.support.v4.app.TaskStackBuilder;
 
+import io.reactivex.Observer;
+import io.reactivex.annotations.NonNull;
+import io.reactivex.disposables.Disposable;
 import nom.bruno.tasksapp.R;
+import nom.bruno.tasksapp.TasksApplication;
 import nom.bruno.tasksapp.activities.MainActivity;
 import nom.bruno.tasksapp.models.Task;
 import nom.bruno.tasksapp.models.TasksDelta;
+import nom.bruno.tasksapp.services.TaskService;
 
 @TargetApi(android.os.Build.VERSION_CODES.LOLLIPOP)
 public class NotificationService extends JobService {
@@ -24,15 +29,39 @@ public class NotificationService extends JobService {
     private static final int NOTIFICATION_ID = 1;
 
     @Override
-    public boolean onStartJob(JobParameters params) {
-        TasksDelta delta = new TasksDelta();
-        Task task = new Task();
-        task.setTitle("Title");
-        task.setDescription("description");
-        delta.getNewTasks().add(task);
-        showTasksNotification(delta);
+    public boolean onStartJob(final JobParameters params) {
         NotificationService.scheduleJob(this);
-        return false;
+        final TasksApplication app = (TasksApplication) getApplication();
+        if (app.isAppVisible()) {
+            return false;
+        } else {
+            TaskService ts = TaskService.getInstance();
+            ts
+                    .getTasksDelta()
+                    .subscribe(new Observer<TasksDelta>() {
+                        @Override
+                        public void onSubscribe(@NonNull Disposable d) {
+
+                        }
+
+                        @Override
+                        public void onNext(@NonNull TasksDelta tasksDelta) {
+                            showTasksNotification(tasksDelta);
+                            jobFinished(params, false);
+                        }
+
+                        @Override
+                        public void onError(@NonNull Throwable e) {
+                            jobFinished(params, false);
+                        }
+
+                        @Override
+                        public void onComplete() {
+                            jobFinished(params, false);
+                        }
+                    });
+            return true;
+        }
     }
 
     @Override

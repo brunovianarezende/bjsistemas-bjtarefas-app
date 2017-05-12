@@ -1,13 +1,7 @@
 package nom.bruno.tasksapp.activities;
 
-import android.app.NotificationManager;
-import android.app.PendingIntent;
-import android.content.Context;
-import android.content.Intent;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
-import android.support.v4.app.NotificationCompat;
-import android.support.v4.app.TaskStackBuilder;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.DividerItemDecoration;
@@ -33,22 +27,18 @@ import io.reactivex.ObservableSource;
 import io.reactivex.android.schedulers.AndroidSchedulers;
 import io.reactivex.functions.Consumer;
 import io.reactivex.functions.Function;
-import io.reactivex.functions.Predicate;
 import io.reactivex.schedulers.Schedulers;
 import io.reactivex.subjects.PublishSubject;
 import nom.bruno.tasksapp.R;
-import nom.bruno.tasksapp.TasksApplication;
 import nom.bruno.tasksapp.Utils;
 import nom.bruno.tasksapp.models.MyVoid;
 import nom.bruno.tasksapp.models.Task;
 import nom.bruno.tasksapp.models.TaskCreation;
 import nom.bruno.tasksapp.models.TaskUpdateParameters;
-import nom.bruno.tasksapp.models.TasksDelta;
 import nom.bruno.tasksapp.services.TaskService;
 import nom.bruno.tasksapp.view.adapters.TasksAdapter;
 
 public class MainActivity extends AppCompatActivity {
-    private static final int NOTIFICATION_ID = 1;
     private TasksAdapter mAdapter = null;
     private ActivityState mState = new ActivityState();
     private PublishSubject<Object> mAddTaskSubject = PublishSubject.create();
@@ -94,8 +84,6 @@ public class MainActivity extends AppCompatActivity {
         }
 
         updateScreenIn30SecondsIfNothingElseHappensBefore();
-
-//        startNotificationHandler(ts);
 
         mAdapter.onDeleteSingle()
                 .observeOn(Schedulers.io())
@@ -179,72 +167,6 @@ public class MainActivity extends AppCompatActivity {
     protected void onDestroy() {
         super.onDestroy();
         mActivityIsDestroyed.onNext("");
-    }
-
-//    private void startNotificationHandler(final TaskService ts) {
-//        final TasksApplication app = (TasksApplication) getApplication();
-//        Observable.interval(30, TimeUnit.SECONDS)
-//                .takeUntil(isDestroyedObservable())
-//                .filter(new Predicate<Long>() {
-//                    @Override
-//                    public boolean test(@io.reactivex.annotations.NonNull Long aLong) throws Exception {
-//                        return !app.isAppVisible();
-//                    }
-//                })
-//                .flatMap(new Function<Long, Observable<TasksDelta>>() {
-//                    @Override
-//                    public Observable<TasksDelta> apply(@io.reactivex.annotations.NonNull Long aLong) throws Exception {
-//                        return ts.getTasksDelta();
-//                    }
-//                })
-//                .subscribe(new Consumer<TasksDelta>() {
-//                    @Override
-//                    public void accept(@io.reactivex.annotations.NonNull TasksDelta tasksDelta) throws Exception {
-//                        showTasksNotification(tasksDelta);
-//                    }
-//                });
-//    }
-
-    private void showTasksNotification(TasksDelta tasksDelta) {
-        if (tasksDelta.isEmpty()) {
-            return;
-        }
-        NotificationCompat.Builder mBuilder =
-                new NotificationCompat.Builder(this)
-                        .setSmallIcon(R.drawable.ic_task_notification)
-                        .setAutoCancel(true);
-        if (tasksDelta.getTotalNumberOfChanges() == 1 && tasksDelta.getNewTasks().size() == 1) {
-            Task task = tasksDelta.getNewTasks().get(0);
-            mBuilder.setContentTitle(task.getTitle());
-            mBuilder.setContentText(task.getDescription());
-        } else {
-            String tasksUpdatedPrefix = getString(R.string.notification_tasks_updated);
-            mBuilder.setContentTitle(tasksUpdatedPrefix + ": " + tasksDelta.getTotalNumberOfChanges());
-        }
-        // for some reason the number is not showing...
-        mBuilder.setNumber(tasksDelta.getTotalNumberOfChanges());
-        // Creates an explicit intent for an Activity in your app
-        Intent resultIntent = new Intent(this, MainActivity.class);
-
-        // The stack builder object will contain an artificial back stack for the
-        // started Activity.
-        // This ensures that navigating backward from the Activity leads out of
-        // your application to the Home screen.
-        TaskStackBuilder stackBuilder = TaskStackBuilder.create(this);
-        // Adds the back stack for the Intent (but not the Intent itself)
-        stackBuilder.addParentStack(MainActivity.class);
-        // Adds the Intent that starts the Activity to the top of the stack
-        stackBuilder.addNextIntent(resultIntent);
-        PendingIntent resultPendingIntent =
-                stackBuilder.getPendingIntent(
-                        0,
-                        PendingIntent.FLAG_UPDATE_CURRENT
-                );
-        mBuilder.setContentIntent(resultPendingIntent);
-        NotificationManager mNotificationManager =
-                (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-        // mId allows you to update the notification later on.
-        mNotificationManager.notify(NOTIFICATION_ID, mBuilder.build());
     }
 
     private void updateScreenIn30SecondsIfNothingElseHappensBefore() {
