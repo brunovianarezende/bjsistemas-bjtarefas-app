@@ -67,7 +67,7 @@ public class TaskService {
         });
     }
 
-    private Observable<List<Task>> getTasks2() {
+    private Observable<List<Task>> getTasksWithoutSideEffects() {
         return executor.call(new Function<TaskApi, Observable<Result<List<Task>>>>() {
             @Override
             public Observable<Result<List<Task>>> apply(@io.reactivex.annotations.NonNull TaskApi taskApi) throws Exception {
@@ -124,7 +124,7 @@ public class TaskService {
     }
 
     public Observable<TasksDelta> getTasksDelta() {
-        return getTasks2()
+        return getTasksWithoutSideEffects()
                 .map(new Function<List<Task>, TasksDelta>() {
                     @Override
                     public TasksDelta apply(@io.reactivex.annotations.NonNull List<Task> tasks) throws Exception {
