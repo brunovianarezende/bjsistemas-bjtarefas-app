@@ -1,6 +1,7 @@
 package nom.bruno.tasksapp.androidservices;
 
 import android.annotation.TargetApi;
+import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.job.JobInfo;
@@ -10,6 +11,8 @@ import android.app.job.JobService;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.Color;
+import android.media.RingtoneManager;
 import android.support.v4.app.NotificationCompat;
 import android.support.v4.app.TaskStackBuilder;
 
@@ -76,7 +79,11 @@ public class NotificationService extends JobService {
         NotificationCompat.Builder mBuilder =
                 new NotificationCompat.Builder(this)
                         .setSmallIcon(R.drawable.ic_task_notification)
-                        .setAutoCancel(true);
+                        .setAutoCancel(true)
+                        // in my device, a lenovo, lights aren't been shown, I still need to
+                        // understand why
+                        .setDefaults(Notification.DEFAULT_SOUND | Notification.FLAG_SHOW_LIGHTS | Notification.DEFAULT_VIBRATE);
+
         if (tasksDelta.getTotalNumberOfChanges() == 1 && tasksDelta.getNewTasks().size() == 1) {
             Task task = tasksDelta.getNewTasks().get(0);
             mBuilder.setContentTitle(task.getTitle());
