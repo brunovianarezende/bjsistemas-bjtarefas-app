@@ -1,8 +1,8 @@
 package nom.bruno.tasksapp.services;
 
+import android.content.Context;
 import android.support.annotation.NonNull;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
@@ -23,6 +23,7 @@ import nom.bruno.tasksapp.models.Task;
 import nom.bruno.tasksapp.models.TaskCreation;
 import nom.bruno.tasksapp.models.TaskUpdate;
 import nom.bruno.tasksapp.models.TasksDelta;
+import nom.bruno.tasksapp.services.storage.TasksStorage;
 import retrofit2.Retrofit;
 import retrofit2.adapter.rxjava2.RxJava2CallAdapterFactory;
 import retrofit2.converter.gson.GsonConverterFactory;
@@ -35,15 +36,15 @@ import retrofit2.http.Path;
 
 public class TaskService {
     private static TaskService myInstance;
-    private List<Task> mCurrentTasks = new ArrayList<>();
+    private final TasksStorage mTasksStorage;
 
-    private TaskService() {
-
+    private TaskService(TasksStorage tasksStorage) {
+        mTasksStorage = tasksStorage;
     }
 
-    public static TaskService getInstance() {
+    public static TaskService getInstance(Context context) {
         if (myInstance == null) {
-            myInstance = new TaskService();
+            myInstance = new TaskService(TasksStorage.create(context));
         }
         return myInstance;
     }
@@ -59,8 +60,9 @@ public class TaskService {
         }).map(new Function<Result<List<Task>>, List<Task>>() {
             @Override
             public List<Task> apply(@io.reactivex.annotations.NonNull Result<List<Task>> listResult) throws Exception {
-                mCurrentTasks = listResult.getData();
-                return listResult.getData();
+                List<Task> tasks = listResult.getData();
+                mTasksStorage.setTasks(tasks);
+                return tasks;
             }
         });
     }
@@ -128,7 +130,7 @@ public class TaskService {
                     public TasksDelta apply(@io.reactivex.annotations.NonNull List<Task> tasks) throws Exception {
                         TasksDelta result = new TasksDelta();
                         Map<Integer, Task> oldTasksMapping = new HashMap<>();
-                        for (Task task : mCurrentTasks) {
+                        for (Task task : getPersistedTasks()) {
                             oldTasksMapping.put(task.getId(), task);
                         }
                         Map<Integer, Task> newTasksMapping = new HashMap<>();
@@ -144,12 +146,16 @@ public class TaskService {
                                 }
                             }
                         }
-                        Set<Integer> deletedIds = new HashSet<Integer>(oldTasksMapping.keySet());
+                        Set<Integer> deletedIds = new HashSet<>(oldTasksMapping.keySet());
                         deletedIds.removeAll(newTasksMapping.keySet());
                         result.getDeletedTasksIds().addAll(deletedIds);
                         return result;
                     }
                 });
+    }
+
+    public List<Task> getPersistedTasks() {
+        return mTasksStorage.getTasks();
     }
 
     public interface TaskApi {

@@ -70,9 +70,11 @@ public class MainActivity extends AppCompatActivity {
         mAdapter.bindRecyclerView(rvTasks);
         rvTasks.setLayoutManager(layoutManager);
 
-        final TaskService ts = TaskService.getInstance();
+        final TaskService ts = TaskService.getInstance(this);
 
         if (savedInstanceState == null) {
+            List<Task> tasks = ts.getPersistedTasks();
+            mAdapter.updateTasks(tasks);
             ts.getTasks()
                     .observeOn(AndroidSchedulers.mainThread())
                     .subscribe(new Consumer<List<Task>>() {

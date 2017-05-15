@@ -35,7 +35,7 @@ public class NotificationService extends JobService {
         if (app.isAppVisible()) {
             return false;
         } else {
-            TaskService ts = TaskService.getInstance();
+            TaskService ts = TaskService.getInstance(app);
             ts
                     .getTasksDelta()
                     .subscribe(new Observer<TasksDelta>() {
