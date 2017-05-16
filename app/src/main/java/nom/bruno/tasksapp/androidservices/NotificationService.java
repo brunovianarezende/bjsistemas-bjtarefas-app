@@ -82,7 +82,7 @@ public class NotificationService extends JobService {
                         .setAutoCancel(true)
                         // in my device, a lenovo, lights aren't been shown, I still need to
                         // understand why
-                        .setDefaults(Notification.DEFAULT_SOUND | Notification.FLAG_SHOW_LIGHTS | Notification.DEFAULT_VIBRATE);
+                        .setDefaults(Notification.DEFAULT_SOUND | Notification.DEFAULT_LIGHTS | Notification.DEFAULT_VIBRATE);
 
         if (tasksDelta.getTotalNumberOfChanges() == 1 && tasksDelta.getNewTasks().size() == 1) {
             Task task = tasksDelta.getNewTasks().get(0);
