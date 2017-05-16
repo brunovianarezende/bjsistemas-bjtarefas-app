@@ -149,6 +149,7 @@ public class TaskService {
                         Set<Integer> deletedIds = new HashSet<>(oldTasksMapping.keySet());
                         deletedIds.removeAll(newTasksMapping.keySet());
                         result.getDeletedTasksIds().addAll(deletedIds);
+                        mTasksStorage.setTasks(tasks);
                         return result;
                     }
                 });
