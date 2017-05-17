@@ -11,14 +11,14 @@ import android.app.job.JobService;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.graphics.Color;
-import android.media.RingtoneManager;
 import android.support.v4.app.NotificationCompat;
 import android.support.v4.app.TaskStackBuilder;
 
 import io.reactivex.Observer;
 import io.reactivex.annotations.NonNull;
 import io.reactivex.disposables.Disposable;
+import nom.bruno.tasksapp.ExceptionHandler;
+import nom.bruno.tasksapp.LogWrapper;
 import nom.bruno.tasksapp.R;
 import nom.bruno.tasksapp.TasksApplication;
 import nom.bruno.tasksapp.activities.MainActivity;
@@ -33,6 +33,8 @@ public class NotificationService extends JobService {
 
     @Override
     public boolean onStartJob(final JobParameters params) {
+        // add exception handler
+        Thread.setDefaultUncaughtExceptionHandler(new ExceptionHandler());
         NotificationService.scheduleJob(this);
         final TasksApplication app = (TasksApplication) getApplication();
         if (app.isAppVisible()) {
@@ -49,12 +51,18 @@ public class NotificationService extends JobService {
 
                         @Override
                         public void onNext(@NonNull TasksDelta tasksDelta) {
-                            showTasksNotification(tasksDelta);
-                            jobFinished(params, false);
+                            try {
+                                showTasksNotification(tasksDelta);
+                            } catch (Exception e) {
+                                LogWrapper.error(e);
+                            } finally {
+                                jobFinished(params, false);
+                            }
                         }
 
                         @Override
                         public void onError(@NonNull Throwable e) {
+                            LogWrapper.error(e);
                             jobFinished(params, false);
                         }
 
@@ -128,7 +136,7 @@ public class NotificationService extends JobService {
             JobInfo.Builder builder = new JobInfo.Builder(JOB_ID, serviceComponent)
                     .setMinimumLatency(30 * 1000) // wait at least
                     .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY); // need network connection
-            JobScheduler jobScheduler = (JobScheduler) context.getSystemService(context.JOB_SCHEDULER_SERVICE);
+            JobScheduler jobScheduler = (JobScheduler) context.getSystemService(Context.JOB_SCHEDULER_SERVICE);
             jobScheduler.schedule(builder.build());
         }
     }

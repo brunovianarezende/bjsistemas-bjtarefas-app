@@ -29,6 +29,7 @@ import io.reactivex.functions.Consumer;
 import io.reactivex.functions.Function;
 import io.reactivex.schedulers.Schedulers;
 import io.reactivex.subjects.PublishSubject;
+import nom.bruno.tasksapp.ExceptionHandler;
 import nom.bruno.tasksapp.R;
 import nom.bruno.tasksapp.Utils;
 import nom.bruno.tasksapp.androidservices.NotificationService;
@@ -50,6 +51,8 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        // add exception handler
+        Thread.setDefaultUncaughtExceptionHandler(new ExceptionHandler());
         // hack to start notification service if it wasn't started on boot
         NotificationService.scheduleJob(this);
 
@@ -349,4 +352,5 @@ public class MainActivity extends AppCompatActivity {
             this.mState = mState;
         }
     }
+
 }

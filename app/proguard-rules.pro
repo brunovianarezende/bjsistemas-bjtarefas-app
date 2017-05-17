@@ -23,8 +23,10 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+##---------------Begin: proguard configuration for retrofit2  ----------
 -dontwarn okio.**
 -dontwarn retrofit2.Platform$Java8
+##---------------End: proguard configuration for retrofit2  ---------
 
 ##---------------Begin: proguard configuration for Gson  ----------
 # Gson uses generic type information stored in a class file when working with fields. Proguard
@@ -46,4 +48,10 @@
 -keep class * implements com.google.gson.JsonSerializer
 -keep class * implements com.google.gson.JsonDeserializer
 
-##---------------End: proguard configuration for Gson  ----------
+##---------------End: proguard configuration for Gson  ---------
+
+##---------------Begin: proguard configuration for Sentry  ----------
+-dontwarn javax.naming.**
+-dontwarn javax.servlet.**
+-dontwarn org.slf4j.**
+##---------------End: proguard configuration for Sentry  ---------

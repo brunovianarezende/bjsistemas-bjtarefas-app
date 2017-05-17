@@ -4,6 +4,8 @@ import android.app.Activity;
 import android.app.Application;
 import android.os.Bundle;
 
+import com.getsentry.raven.android.Raven;
+
 public class TasksApplication extends Application {
     private TasksAppActivityLifecycleCallbacks mLifecycleCallbacks;
 
@@ -12,6 +14,7 @@ public class TasksApplication extends Application {
         super.onCreate();
         mLifecycleCallbacks = new TasksAppActivityLifecycleCallbacks();
         registerActivityLifecycleCallbacks(mLifecycleCallbacks);
+        LogWrapper.configure(getApplicationContext());
     }
 
     public boolean isAppVisible() {
