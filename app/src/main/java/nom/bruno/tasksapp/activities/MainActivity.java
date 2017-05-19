@@ -14,12 +14,15 @@ import android.view.MenuItem;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.ImageButton;
+import android.widget.ProgressBar;
 
 import com.google.gson.Gson;
 import com.jakewharton.rxbinding2.view.RxView;
 
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import io.reactivex.Observable;
@@ -92,7 +95,7 @@ public class MainActivity extends AppCompatActivity {
             mAdapter.deserializeState(savedInstanceState.getString(mAdapter.getClass().getCanonicalName()));
         }
 
-        updateScreenIn30SecondsIfNothingElseHappensBefore();
+        updateScreenIn30SecondsIfItIsntUpdatedBefore();
 
         mAdapter.onDeleteSingle()
                 .observeOn(Schedulers.io())
@@ -127,7 +130,7 @@ public class MainActivity extends AppCompatActivity {
                 .doOnNext(new Consumer<TaskCreation>() {
                     @Override
                     public void accept(@NonNull TaskCreation taskCreation) throws Exception {
-                        switchToDefaultState();
+                        switchToSavingNewTaskState();
                     }
                 })
                 .observeOn(Schedulers.io())
@@ -135,6 +138,13 @@ public class MainActivity extends AppCompatActivity {
                     @Override
                     public ObservableSource<Integer> apply(@NonNull TaskCreation taskCreation) throws Exception {
                         return ts.addTask(taskCreation);
+                    }
+                })
+                .observeOn(AndroidSchedulers.mainThread())
+                .doOnNext(new Consumer<Integer>() {
+                    @Override
+                    public void accept(@NonNull Integer integer) throws Exception {
+                        switchToDefaultState();
                     }
                 })
                 .subscribe(mUpdateTasksSubject);
@@ -153,7 +163,7 @@ public class MainActivity extends AppCompatActivity {
                 .doOnNext(new Consumer<Object>() {
                     @Override
                     public void accept(@io.reactivex.annotations.NonNull Object o) throws Exception {
-                        updateScreenIn30SecondsIfNothingElseHappensBefore();
+                        updateScreenIn30SecondsIfItIsntUpdatedBefore();
                     }
                 })
                 .observeOn(Schedulers.io())
@@ -178,7 +188,7 @@ public class MainActivity extends AppCompatActivity {
         mActivityIsDestroyed.onNext("");
     }
 
-    private void updateScreenIn30SecondsIfNothingElseHappensBefore() {
+    private void updateScreenIn30SecondsIfItIsntUpdatedBefore() {
         /*
          1. if the user doesn't do any interaction in the interface, in 30 seconds the observable
             bellow will emit an item to mUpdateTasksSubject.
@@ -218,13 +228,19 @@ public class MainActivity extends AppCompatActivity {
     private void switchToDefaultState() {
         mState.setState(DEFAULT_STATE);
         hideKeyboard();
-        mAddTaskView.hideAllFields();
+        mAddTaskView.showDefaultState();
     }
 
     private void switchToAddTaskState() {
         mState.setState(ADD_TASK_STATE);
         mAddTaskView.cleanFields();
-        mAddTaskView.showAllFields();
+        mAddTaskView.showAddTaskState();
+    }
+
+    private void switchToSavingNewTaskState() {
+        mState.setState(SAVING_NEW_TASK_STATE);
+        hideKeyboard();
+        mAddTaskView.showSavingNewTaskState();
     }
 
     private void switchToState(int state) {
@@ -234,6 +250,9 @@ public class MainActivity extends AppCompatActivity {
                 break;
             case ADD_TASK_STATE:
                 switchToAddTaskState();
+                break;
+            case SAVING_NEW_TASK_STATE:
+                switchToSavingNewTaskState();
                 break;
         }
     }
@@ -275,6 +294,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private static class AddTaskView {
+        private final ProgressBar mProgressBar;
         private final EditText mTitleEditText;
         private final EditText mDescriptionEditText;
         private final ImageButton mAddSaveButton;
@@ -284,11 +304,12 @@ public class MainActivity extends AppCompatActivity {
         private final Observable<Object> mCancelAddNewTaskClicks;
 
         public AddTaskView(MainActivity activity) {
+            mProgressBar = (ProgressBar) activity.findViewById(R.id.tasks_progress_bar);
             mTitleEditText = (EditText) activity.findViewById(R.id.tasks_add_task_title);
             mDescriptionEditText = (EditText) activity.findViewById(R.id.tasks_add_task_description);
             mAddSaveButton = (ImageButton) activity.findViewById(R.id.tasks_add_task_save);
             mAddCancelButton = (ImageButton) activity.findViewById(R.id.tasks_add_task_cancel);
-            allItems = Arrays.asList(mTitleEditText, mDescriptionEditText, mAddSaveButton, mAddCancelButton);
+            allItems = Arrays.asList(mProgressBar, mTitleEditText, mDescriptionEditText, mAddSaveButton, mAddCancelButton);
 
             mSaveNewTaskClicks = RxView.clicks(mAddSaveButton)
                     .takeUntil(activity.isDestroyedObservable());
@@ -309,16 +330,43 @@ public class MainActivity extends AppCompatActivity {
             return mCancelAddNewTaskClicks;
         }
 
-        void showAllFields() {
+        private void showOnly(View... items) {
+            Set<Integer> idsToShow = new HashSet<>();
+            for (View item : items) {
+                idsToShow.add(item.getId());
+            }
+            for (View item : allItems) {
+                if (idsToShow.contains(item.getId())) {
+                    item.setVisibility(View.VISIBLE);
+                } else {
+                    item.setVisibility(View.GONE);
+                }
+            }
+        }
+
+
+        private void showAllFields() {
             for (View view : allItems) {
                 view.setVisibility(View.VISIBLE);
             }
         }
 
-        void hideAllFields() {
+        private void hideAllFields() {
             for (View view : allItems) {
                 view.setVisibility(View.GONE);
             }
+        }
+
+        public void showDefaultState() {
+            hideAllFields();
+        }
+
+        public void showAddTaskState() {
+            showOnly(mTitleEditText, mDescriptionEditText, mAddSaveButton, mAddCancelButton);
+        }
+
+        public void showSavingNewTaskState() {
+            showOnly(mProgressBar);
         }
 
         public void cleanFields() {
@@ -340,6 +388,7 @@ public class MainActivity extends AppCompatActivity {
 
     private static final int DEFAULT_STATE = 0;
     private static final int ADD_TASK_STATE = 1;
+    private static final int SAVING_NEW_TASK_STATE = 2;
 
     private static class ActivityState {
         private int mState;
