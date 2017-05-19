@@ -10,6 +10,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
 import android.widget.ImageButton;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import com.google.gson.Gson;
@@ -84,10 +85,6 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
         notifyDataSetChanged();
     }
 
-    public List<Task> getTasks() {
-        return mState.getTasks();
-    }
-
     private void focusOn(ViewHolder viewHolder) {
         Task relatedTask = mState.getTask(viewHolder.getAdapterPosition());
 
@@ -114,6 +111,12 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
 
         RxView.clicks(viewHolder.mDeleteButton)
                 .takeUntil(RxView.detaches(recyclerView))
+                .doOnNext(new Consumer<Object>() {
+                    @Override
+                    public void accept(@NonNull Object o) throws Exception {
+                        startDeletingMode(viewHolder);
+                    }
+                })
                 .map(new Function<Object, Task>() {
                     @Override
                     public Task apply(@NonNull Object o) throws Exception {
@@ -128,6 +131,7 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
                     @Override
                     public void accept(@NonNull Object o) throws Exception {
                         Utils.hideKeyboard(mActivity);
+                        startSavingMode(viewHolder);
                     }
                 })
                 .map(new Function<Object, TaskUpdateParameters>() {
@@ -223,7 +227,18 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
         viewHolder.showViewState();
     }
 
+    private void startSavingMode(ViewHolder viewHolder) {
+        viewHolder.showSavingState();
+        mState.setSelectedTaskState(SAVING_TASK);
+    }
+
+    private void startDeletingMode(ViewHolder viewHolder) {
+        viewHolder.showDeletingState();
+        mState.setSelectedTaskState(DELETING_TASK);
+    }
+
     public static class ViewHolder extends RecyclerView.ViewHolder {
+        private ProgressBar mProgressBar;
         private TextView mTitleTextView;
         private TextView mDescriptionTextView;
         private ImageButton mDeleteButton;
@@ -238,6 +253,7 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
         private ViewHolder(View itemView) {
             super(itemView);
 
+            mProgressBar = (ProgressBar) itemView.findViewById(R.id.item_task_progress_bar);
             mTitleTextView = (TextView) itemView.findViewById(R.id.item_task_title);
             mDescriptionTextView = (TextView) itemView.findViewById(R.id.item_task_description);
             mDeleteButton = (ImageButton) itemView.findViewById(R.id.item_task_delete);
@@ -247,7 +263,7 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
             mTitleEditText = (EditText) itemView.findViewById(R.id.item_task_edit_title);
             mDescriptionEditText = (EditText) itemView.findViewById(R.id.item_task_edit_description);
 
-            allItems = Arrays.asList(mTitleTextView, mDescriptionTextView, mDeleteButton,
+            allItems = Arrays.asList(mProgressBar, mTitleTextView, mDescriptionTextView, mDeleteButton,
                     mEditButton, mTitleEditText, mDescriptionEditText, mEditSaveButton,
                     mEditCancelButton);
         }
@@ -278,6 +294,14 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
             showOnly(mTitleEditText, mDescriptionEditText, mEditSaveButton, mEditCancelButton);
         }
 
+        private void showSavingState() {
+            showOnly(mProgressBar);
+        }
+
+        private void showDeletingState() {
+            showOnly(mProgressBar);
+        }
+
         private void showState(int state) {
             switch (state) {
                 case VIEW_TASK:
@@ -289,6 +313,12 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
                 case EDIT_TASK:
                     showEditState();
                     break;
+                case SAVING_TASK:
+                    showSavingState();
+                    break;
+                case DELETING_TASK:
+                    showDeletingState();
+                    break;
             }
         }
     }
@@ -296,6 +326,8 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
     private static final int VIEW_TASK = 0;
     private static final int TASK_SELECTED = 1;
     private static final int EDIT_TASK = 2;
+    private static final int SAVING_TASK = 3;
+    private static final int DELETING_TASK = 4;
 
     private static class AdapterState {
         private List<Task> mTasks = Collections.emptyList();
@@ -359,10 +391,6 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
 
         boolean contains(Task task) {
             return task != null && mTaskId2Position.containsKey(task.getId());
-        }
-
-        public List<Task> getTasks() {
-            return mTasks;
         }
     }
 }
