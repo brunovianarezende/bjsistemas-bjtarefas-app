@@ -226,7 +226,7 @@ public class TaskService {
                             });
                         }
                     })
-                    .firstElement()
+                    .firstOrError()
                     .toObservable();
         }
 

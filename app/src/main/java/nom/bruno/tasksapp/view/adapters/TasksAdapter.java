@@ -57,14 +57,7 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
         return saveSubject;
     }
 
-    private void clearCurrentlySelected() {
-        ViewHolder currentlyFocused = getCurrentlySelected();
-        if (currentlyFocused != null) {
-            currentlyFocused.showViewState();
-        }
-    }
-
-    private ViewHolder getCurrentlySelected() {
+    public ViewHolder getCurrentlySelected() {
         if (mState.hasTaskSelected()) {
             return (ViewHolder) mRecyclerView.getChildViewHolder(mRecyclerView.getChildAt(mState.getSelectedTaskPosition()));
         } else {
@@ -85,22 +78,6 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
         notifyDataSetChanged();
     }
 
-    private void focusOn(ViewHolder viewHolder) {
-        Task relatedTask = mState.getTask(viewHolder.getAdapterPosition());
-
-        if (!mState.hasTaskSelected()) {
-            viewHolder.showItemSelectedState();
-            mState.selectTask(relatedTask);
-        } else if (!mState.isSelected(relatedTask)) {
-            clearCurrentlySelected();
-            viewHolder.showItemSelectedState();
-            mState.selectTask(relatedTask);
-        } else {
-            clearCurrentlySelected();
-            mState.clearSelectedTask();
-        }
-    }
-
     @Override
     public ViewHolder onCreateViewHolder(ViewGroup recyclerView, int viewType) {
         Context context = recyclerView.getContext();
@@ -114,7 +91,7 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
                 .doOnNext(new Consumer<Object>() {
                     @Override
                     public void accept(@NonNull Object o) throws Exception {
-                        startDeletingMode(viewHolder);
+                        switchToDeletingState(viewHolder);
                     }
                 })
                 .map(new Function<Object, Task>() {
@@ -131,7 +108,7 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
                     @Override
                     public void accept(@NonNull Object o) throws Exception {
                         Utils.hideKeyboard(mActivity);
-                        startSavingMode(viewHolder);
+                        switchToSavingState(viewHolder);
                     }
                 })
                 .map(new Function<Object, TaskUpdateParameters>() {
@@ -143,7 +120,6 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
                         update.setTaskId(currentTask.getId());
                         taskUpdate.setTitle(viewHolder.mTitleEditText.getText().toString());
                         taskUpdate.setDescription(viewHolder.mDescriptionEditText.getText().toString());
-                        mState.clearSelectedTask();
                         return update;
                     }
                 })
@@ -154,7 +130,15 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
                 .subscribe(new Consumer<Object>() {
                     @Override
                     public void accept(@NonNull Object o) throws Exception {
-                        focusOn(viewHolder);
+                        Task relatedTask = mState.getTask(viewHolder.getAdapterPosition());
+
+                        if (!mState.hasTaskSelected()) {
+                            switchToItemSelectedState(viewHolder);
+                        } else if (!mState.isSelected(relatedTask)) {
+                            switchToItemSelectedState(viewHolder);
+                        } else {
+                            switchToViewState();
+                        }
                     }
                 });
 
@@ -163,7 +147,7 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
                 .subscribe(new Consumer<Object>() {
                     @Override
                     public void accept(@NonNull Object o) throws Exception {
-                        startEditMode(viewHolder);
+                        switchToEditState(viewHolder);
                     }
                 });
 
@@ -177,7 +161,7 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
                     }
                 });
 
-        startViewMode(viewHolder);
+        viewHolder.showViewState();
 
         return viewHolder;
     }
@@ -218,23 +202,38 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
         this.mRecyclerView = recyclerView;
     }
 
-    private void startEditMode(ViewHolder viewHolder) {
-        viewHolder.showEditState();
+    public void switchToEditState(ViewHolder viewHolder) {
+        mState.selectTask(mState.getTask(viewHolder.getAdapterPosition()));
         mState.setSelectedTaskState(EDIT_TASK);
+        viewHolder.showEditState();
     }
 
-    private void startViewMode(ViewHolder viewHolder) {
-        viewHolder.showViewState();
+    public void switchToViewState() {
+        ViewHolder current = getCurrentlySelected();
+        if (current != null) {
+            current.showViewState();
+        }
+        mState.clearSelectedTask();
     }
 
-    private void startSavingMode(ViewHolder viewHolder) {
-        viewHolder.showSavingState();
+    public void switchToItemSelectedState(ViewHolder viewHolder) {
+        ViewHolder current = getCurrentlySelected();
+        if (current != null) {
+            current.showViewState();
+        }
+        mState.selectTask(mState.getTask(viewHolder.getAdapterPosition()));
+        mState.setSelectedTaskState(TASK_SELECTED);
+        viewHolder.showItemSelectedState();
+    }
+
+    private void switchToSavingState(ViewHolder viewHolder) {
         mState.setSelectedTaskState(SAVING_TASK);
+        viewHolder.showSavingState();
     }
 
-    private void startDeletingMode(ViewHolder viewHolder) {
-        viewHolder.showDeletingState();
+    private void switchToDeletingState(ViewHolder viewHolder) {
         mState.setSelectedTaskState(DELETING_TASK);
+        viewHolder.showDeletingState();
     }
 
     public static class ViewHolder extends RecyclerView.ViewHolder {
@@ -342,12 +341,10 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
 
         void selectTask(@NonNull Task taskToFocus) {
             mSelectedTaskId = taskToFocus.getId();
-            mSelectedTaskState = TASK_SELECTED;
         }
 
         void clearSelectedTask() {
             mSelectedTaskId = -1;
-            mSelectedTaskState = VIEW_TASK;
         }
 
         Task getSelectedTask() {

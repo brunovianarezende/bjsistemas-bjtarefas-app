@@ -82,6 +82,7 @@ public class MainActivity extends AppCompatActivity {
             List<Task> tasks = ts.getPersistedTasks();
             mAdapter.updateTasks(tasks);
             ts.getTasks()
+                    .onErrorReturnItem(tasks)
                     .observeOn(AndroidSchedulers.mainThread())
                     .subscribe(new Consumer<List<Task>>() {
                         @Override
@@ -102,7 +103,16 @@ public class MainActivity extends AppCompatActivity {
                 .flatMap(new Function<Task, Observable<MyVoid>>() {
                     @Override
                     public Observable<MyVoid> apply(@NonNull Task task) throws Exception {
-                        return ts.deleteTask(task.getId());
+                        return ts
+                                .deleteTask(task.getId())
+                                .observeOn(AndroidSchedulers.mainThread())
+                                .onErrorResumeNext(new Function<Throwable, ObservableSource<? extends MyVoid>>() {
+                                    @Override
+                                    public ObservableSource<? extends MyVoid> apply(@io.reactivex.annotations.NonNull Throwable throwable) throws Exception {
+                                        mAdapter.switchToItemSelectedState(mAdapter.getCurrentlySelected());
+                                        return Observable.empty();
+                                    }
+                                });
                     }
                 })
                 .subscribe(mUpdateTasksSubject);
@@ -112,7 +122,22 @@ public class MainActivity extends AppCompatActivity {
                 .flatMap(new Function<TaskUpdateParameters, Observable<MyVoid>>() {
                     @Override
                     public Observable<MyVoid> apply(@NonNull TaskUpdateParameters updateDescription) throws Exception {
-                        return ts.updateTask(updateDescription.getTaskId(), updateDescription.getUpdateData());
+                        return ts.
+                                updateTask(updateDescription.getTaskId(), updateDescription.getUpdateData())
+                                .observeOn(AndroidSchedulers.mainThread())
+                                .onErrorResumeNext(new Function<Throwable, ObservableSource<? extends MyVoid>>() {
+                                    @Override
+                                    public ObservableSource<? extends MyVoid> apply(@io.reactivex.annotations.NonNull Throwable throwable) throws Exception {
+                                        mAdapter.switchToEditState(mAdapter.getCurrentlySelected());
+                                        return Observable.empty();
+                                    }
+                                });
+                    }
+                })
+                .doOnNext(new Consumer<MyVoid>() {
+                    @Override
+                    public void accept(@io.reactivex.annotations.NonNull MyVoid myVoid) throws Exception {
+                        mAdapter.switchToViewState();
                     }
                 })
                 .subscribe(mUpdateTasksSubject);
@@ -137,13 +162,22 @@ public class MainActivity extends AppCompatActivity {
                 .flatMap(new Function<TaskCreation, ObservableSource<Integer>>() {
                     @Override
                     public ObservableSource<Integer> apply(@NonNull TaskCreation taskCreation) throws Exception {
-                        return ts.addTask(taskCreation);
+                        return ts
+                                .addTask(taskCreation)
+                                .observeOn(AndroidSchedulers.mainThread())
+                                .onErrorResumeNext(new Function<Throwable, ObservableSource<? extends Integer>>() {
+                                    @Override
+                                    public ObservableSource<? extends Integer> apply(@io.reactivex.annotations.NonNull Throwable throwable) throws Exception {
+                                        switchToAddTaskState();
+                                        return Observable.empty();
+                                    }
+                                });
                     }
                 })
                 .observeOn(AndroidSchedulers.mainThread())
                 .doOnNext(new Consumer<Integer>() {
                     @Override
-                    public void accept(@NonNull Integer integer) throws Exception {
+                    public void accept(@io.reactivex.annotations.NonNull Integer integer) throws Exception {
                         switchToDefaultState();
                     }
                 })
@@ -170,7 +204,14 @@ public class MainActivity extends AppCompatActivity {
                 .flatMap(new Function<Object, Observable<List<Task>>>() {
                     @Override
                     public Observable<List<Task>> apply(@io.reactivex.annotations.NonNull Object o) throws Exception {
-                        return ts.getTasks();
+                        return ts
+                                .getTasks()
+                                .onErrorResumeNext(new Function<Throwable, ObservableSource<? extends List<Task>>>() {
+                                    @Override
+                                    public ObservableSource<? extends List<Task>> apply(@io.reactivex.annotations.NonNull Throwable throwable) throws Exception {
+                                        return Observable.empty();
+                                    }
+                                });
                     }
                 })
                 .observeOn(AndroidSchedulers.mainThread())
@@ -228,12 +269,12 @@ public class MainActivity extends AppCompatActivity {
     private void switchToDefaultState() {
         mState.setState(DEFAULT_STATE);
         hideKeyboard();
+        mAddTaskView.cleanFields();
         mAddTaskView.showDefaultState();
     }
 
     private void switchToAddTaskState() {
         mState.setState(ADD_TASK_STATE);
-        mAddTaskView.cleanFields();
         mAddTaskView.showAddTaskState();
     }
 
