@@ -10,4 +10,4 @@ OUTPUT=$BASEPATH/app-release-signed.apk
 
 
 zipalign 4 $INPUT $ZIPALIGNED
-apksigner sign --ks $KEYSTORE --ks-pass $STOREPASS -ks-key-alias tasksapp --keypass $KEYPASS --out $OUTPUT
+apksigner sign --ks $KEYSTORE --ks-pass $STOREPASS -ks-key-alias tasksapp --key-pass $KEYPASS --out $OUTPUT
