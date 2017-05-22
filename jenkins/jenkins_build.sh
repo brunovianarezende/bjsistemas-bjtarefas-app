@@ -10,5 +10,4 @@ OUTPUT=$OUTPUTDIR/app-release-signed.apk
 
 rm -rf $OUTPUTDIR
 mkdir $OUTPUTDIR
-zipalign 4 $INPUT $OUTPUT
 apksigner sign --ks $KEYSTORE --ks-pass $STOREPASS -ks-key-alias tasksapp --key-pass $KEYPASS $OUTPUT
