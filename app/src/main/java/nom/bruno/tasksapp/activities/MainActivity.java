@@ -112,7 +112,6 @@ public class MainActivity extends AppCompatActivity {
                                     @Override
                                     public ObservableSource<? extends MyVoid> apply(@io.reactivex.annotations.NonNull Throwable throwable) throws Exception {
                                         mAdapter.switchToItemSelectedState(mAdapter.getCurrentlySelected());
-                                        LogWrapper.error(throwable);
                                         showServerError();
                                         return Observable.empty();
                                     }
