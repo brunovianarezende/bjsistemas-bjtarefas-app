@@ -2,6 +2,7 @@ package nom.bruno.tasksapp.activities;
 
 import android.os.Bundle;
 import android.support.annotation.NonNull;
+import android.support.design.widget.Snackbar;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.DividerItemDecoration;
@@ -110,6 +111,7 @@ public class MainActivity extends AppCompatActivity {
                                     @Override
                                     public ObservableSource<? extends MyVoid> apply(@io.reactivex.annotations.NonNull Throwable throwable) throws Exception {
                                         mAdapter.switchToItemSelectedState(mAdapter.getCurrentlySelected());
+                                        showServerError();
                                         return Observable.empty();
                                     }
                                 });
@@ -129,6 +131,7 @@ public class MainActivity extends AppCompatActivity {
                                     @Override
                                     public ObservableSource<? extends MyVoid> apply(@io.reactivex.annotations.NonNull Throwable throwable) throws Exception {
                                         mAdapter.switchToEditState(mAdapter.getCurrentlySelected());
+                                        showServerError();
                                         return Observable.empty();
                                     }
                                 });
@@ -169,6 +172,7 @@ public class MainActivity extends AppCompatActivity {
                                     @Override
                                     public ObservableSource<? extends Integer> apply(@io.reactivex.annotations.NonNull Throwable throwable) throws Exception {
                                         switchToAddTaskState();
+                                        showServerError();
                                         return Observable.empty();
                                     }
                                 });
@@ -221,6 +225,16 @@ public class MainActivity extends AppCompatActivity {
                         mAdapter.updateTasks(tasks);
                     }
                 });
+    }
+
+    private void showServerError() {
+        Snackbar
+                .make(findViewById(R.id.tasks_coordinator_layout), R.string.error_in_server, getInteger(R.integer.error_message_length))
+                .show();
+    }
+
+    private int getInteger(int resourceId) {
+        return getResources().getInteger(resourceId);
     }
 
     @Override

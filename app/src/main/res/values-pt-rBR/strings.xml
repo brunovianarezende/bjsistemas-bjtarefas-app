@@ -9,4 +9,5 @@
     <string name="task_description">Descrição</string>
     <string name="task_title">Título</string>
     <string name="notification_tasks_updated">Tarefas atualizadas</string>
+    <string name="error_in_server">Erro ao conectar ao servidor - Operação não completada</string>
 </resources>
