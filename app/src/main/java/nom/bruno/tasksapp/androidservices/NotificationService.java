@@ -14,6 +14,8 @@ import android.content.Intent;
 import android.support.v4.app.NotificationCompat;
 import android.support.v4.app.TaskStackBuilder;
 
+import java.util.NoSuchElementException;
+
 import io.reactivex.Observer;
 import io.reactivex.annotations.NonNull;
 import io.reactivex.disposables.Disposable;
@@ -62,7 +64,9 @@ public class NotificationService extends JobService {
 
                         @Override
                         public void onError(@NonNull Throwable e) {
-                            LogWrapper.error(e);
+                            if (!(e instanceof NoSuchElementException)) {
+                                LogWrapper.error(e);
+                            }
                             jobFinished(params, false);
                         }
 
