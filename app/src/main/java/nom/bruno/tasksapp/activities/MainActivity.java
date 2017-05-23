@@ -34,6 +34,7 @@ import io.reactivex.functions.Function;
 import io.reactivex.schedulers.Schedulers;
 import io.reactivex.subjects.PublishSubject;
 import nom.bruno.tasksapp.ExceptionHandler;
+import nom.bruno.tasksapp.LogWrapper;
 import nom.bruno.tasksapp.R;
 import nom.bruno.tasksapp.Utils;
 import nom.bruno.tasksapp.androidservices.NotificationService;
@@ -111,6 +112,7 @@ public class MainActivity extends AppCompatActivity {
                                     @Override
                                     public ObservableSource<? extends MyVoid> apply(@io.reactivex.annotations.NonNull Throwable throwable) throws Exception {
                                         mAdapter.switchToItemSelectedState(mAdapter.getCurrentlySelected());
+                                        LogWrapper.error(throwable);
                                         showServerError();
                                         return Observable.empty();
                                     }
