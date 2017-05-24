@@ -1,5 +1,6 @@
 package nom.bruno.tasksapp.activities;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.design.widget.Snackbar;
@@ -146,15 +147,18 @@ public class MainActivity extends AppCompatActivity {
                 })
                 .subscribe(mUpdateTasksSubject);
 
-//        mAdapter.onLongClick()
-//                .observeOn(AndroidSchedulers.mainThread())
-//                .subscribe(new Consumer<Task>() {
-//                    @Override
-//                    public void accept(@io.reactivex.annotations.NonNull Task task) throws Exception {
-//
-//                    }
-//                })
-//
+        mAdapter.onLongClick()
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(new Consumer<Task>() {
+                    @Override
+                    public void accept(@io.reactivex.annotations.NonNull Task task) throws Exception {
+                        Intent sendIntent = new Intent();
+                        sendIntent.setAction(Intent.ACTION_SEND);
+                        sendIntent.putExtra(Intent.EXTRA_TEXT, "This is my text to send.");
+                        sendIntent.setType("text/plain");
+                        startActivity(Intent.createChooser(sendIntent, "bla"));
+                    }
+                });
 
         mAddTaskSubject.observeOn(AndroidSchedulers.mainThread())
                 .subscribe(new Consumer<Object>() {
