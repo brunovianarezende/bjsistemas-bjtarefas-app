@@ -146,6 +146,16 @@ public class MainActivity extends AppCompatActivity {
                 })
                 .subscribe(mUpdateTasksSubject);
 
+//        mAdapter.onLongClick()
+//                .observeOn(AndroidSchedulers.mainThread())
+//                .subscribe(new Consumer<Task>() {
+//                    @Override
+//                    public void accept(@io.reactivex.annotations.NonNull Task task) throws Exception {
+//
+//                    }
+//                })
+//
+
         mAddTaskSubject.observeOn(AndroidSchedulers.mainThread())
                 .subscribe(new Consumer<Object>() {
                     @Override

@@ -3,7 +3,10 @@ package nom.bruno.tasksapp.view.adapters;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Context;
+import android.graphics.drawable.RippleDrawable;
+import android.os.Build;
 import android.support.annotation.NonNull;
+import android.support.constraint.ConstraintLayout;
 import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -47,6 +50,8 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
 
     private PublishSubject<TaskUpdateParameters> saveSubject = PublishSubject.create();
 
+    private PublishSubject<Task> mLongClick = PublishSubject.create();
+
     private RecyclerView mRecyclerView;
 
     public Observable<Task> onDeleteSingle() {
@@ -55,6 +60,10 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
 
     public Observable<TaskUpdateParameters> onUpdate() {
         return saveSubject;
+    }
+
+    public Observable<Task> onLongClick() {
+        return mLongClick;
     }
 
     public ViewHolder getCurrentlySelected() {
@@ -84,6 +93,7 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
         LayoutInflater inflater = LayoutInflater.from(context);
 
         View taskView = inflater.inflate(R.layout.item_task, recyclerView, false);
+
         final ViewHolder viewHolder = new ViewHolder(taskView);
 
         RxView.clicks(viewHolder.mDeleteButton)
@@ -141,6 +151,22 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
                         }
                     }
                 });
+
+        RxView.longClicks(taskView)
+                .takeUntil(RxView.detaches(recyclerView))
+                .doOnNext(new Consumer<Object>() {
+                    @Override
+                    public void accept(@io.reactivex.annotations.NonNull Object o) throws Exception {
+                        viewHolder.setSelected(true);
+                    }
+                })
+                .map(new Function<Object, Task>() {
+                    @Override
+                    public Task apply(@io.reactivex.annotations.NonNull Object o) throws Exception {
+                        return mState.getTask(viewHolder.getAdapterPosition());
+                    }
+                })
+                .subscribe(mLongClick);
 
         RxView.clicks(viewHolder.mEditButton)
                 .takeUntil(RxView.detaches(recyclerView))
@@ -237,21 +263,23 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
     }
 
     public static class ViewHolder extends RecyclerView.ViewHolder {
-        private ProgressBar mProgressBar;
-        private TextView mTitleTextView;
-        private TextView mDescriptionTextView;
-        private ImageButton mDeleteButton;
-        private ImageButton mEditButton;
-        private ImageButton mEditSaveButton;
-        private ImageButton mEditCancelButton;
-        private EditText mTitleEditText;
-        private EditText mDescriptionEditText;
+        private final ConstraintLayout mLayout;
+        private final ProgressBar mProgressBar;
+        private final TextView mTitleTextView;
+        private final TextView mDescriptionTextView;
+        private final ImageButton mDeleteButton;
+        private final ImageButton mEditButton;
+        private final ImageButton mEditSaveButton;
+        private final ImageButton mEditCancelButton;
+        private final EditText mTitleEditText;
+        private final EditText mDescriptionEditText;
 
         private final List<View> allItems;
 
         private ViewHolder(View itemView) {
             super(itemView);
 
+            mLayout = (ConstraintLayout) itemView.findViewById(R.id.item_task_layout);
             mProgressBar = (ProgressBar) itemView.findViewById(R.id.item_task_progress_bar);
             mTitleTextView = (TextView) itemView.findViewById(R.id.item_task_title);
             mDescriptionTextView = (TextView) itemView.findViewById(R.id.item_task_description);
@@ -265,6 +293,19 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
             allItems = Arrays.asList(mProgressBar, mTitleTextView, mDescriptionTextView, mDeleteButton,
                     mEditButton, mTitleEditText, mDescriptionEditText, mEditSaveButton,
                     mEditCancelButton);
+        }
+
+        void setSelected(boolean selected) {
+            if (android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                final RippleDrawable rd = (RippleDrawable) itemView.getContext().getResources().getDrawable(R.drawable.item_selected_ripple, itemView.getContext().getTheme());
+                mLayout.setBackground(rd);
+                final float centreX = itemView.getWidth() / 2;
+                final float centreY = itemView.getHeight() / 2;
+                rd.setHotspot(centreX, centreY);
+                rd.setState(new int[]{});
+            } else {
+                mLayout.setSelected(selected);
+            }
         }
 
         private void showOnly(View... items) {
