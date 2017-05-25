@@ -7,6 +7,7 @@ import android.graphics.drawable.RippleDrawable;
 import android.os.Build;
 import android.support.annotation.NonNull;
 import android.support.constraint.ConstraintLayout;
+import android.support.v4.content.ContextCompat;
 import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -19,6 +20,7 @@ import android.widget.TextView;
 import com.google.gson.Gson;
 import com.jakewharton.rxbinding2.view.RxView;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -50,7 +52,7 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
 
     private PublishSubject<TaskUpdateParameters> saveSubject = PublishSubject.create();
 
-    private PublishSubject<Task> mLongClick = PublishSubject.create();
+    private PublishSubject<StateDelta> mStateChangeSubject = PublishSubject.create();
 
     private RecyclerView mRecyclerView;
 
@@ -62,16 +64,20 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
         return saveSubject;
     }
 
-    public Observable<Task> onLongClick() {
-        return mLongClick;
+    public Observable<StateDelta> onStateChange() {
+        return mStateChangeSubject;
     }
 
-    public ViewHolder getCurrentlySelected() {
+    private ViewHolder getCurrentlySelected() {
         if (mState.hasTaskSelected()) {
-            return (ViewHolder) mRecyclerView.getChildViewHolder(mRecyclerView.getChildAt(mState.getSelectedTaskPosition()));
+            return getRelatedViewHolder(mState.getSelectedTask());
         } else {
             return null;
         }
+    }
+
+    private ViewHolder getRelatedViewHolder(Task task) {
+        return (ViewHolder) mRecyclerView.getChildViewHolder(mRecyclerView.getChildAt(mState.getTaskPosition(task)));
     }
 
     public void updateTasks(List<Task> tasks) {
@@ -80,11 +86,15 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
         newState.setTasks(tasks);
         if (newState.contains(focusedTask)) {
             newState.selectTask(focusedTask);
-            newState.setSelectedTaskState(mState.getSelectedTaskState());
+            newState.setAdapterState(mState.getAdapterState());
         }
 
         mState = newState;
         notifyDataSetChanged();
+    }
+
+    public List<Task> getMultipleSelectedTasks() {
+        return mState.getMultipleSelected();
     }
 
     @Override
@@ -142,31 +152,32 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
                     public void accept(@NonNull Object o) throws Exception {
                         Task relatedTask = mState.getTask(viewHolder.getAdapterPosition());
 
-                        if (!mState.hasTaskSelected()) {
-                            switchToItemSelectedState(viewHolder);
-                        } else if (!mState.isSelected(relatedTask)) {
-                            switchToItemSelectedState(viewHolder);
+                        if (mState.getAdapterState() == States.SELECT_MULTIPLE_TASKS) {
+                            auxHandleClickWhenInMultipleSelectState(viewHolder);
                         } else {
-                            switchToViewState();
+                            if (!mState.hasTaskSelected()) {
+                                switchToItemSelectedState(viewHolder);
+                            } else if (!mState.isSelected(relatedTask)) {
+                                switchToItemSelectedState(viewHolder);
+                            } else {
+                                switchToViewState();
+                            }
                         }
                     }
                 });
 
         RxView.longClicks(taskView)
                 .takeUntil(RxView.detaches(recyclerView))
-                .doOnNext(new Consumer<Object>() {
+                .subscribe(new Consumer<Object>() {
                     @Override
                     public void accept(@io.reactivex.annotations.NonNull Object o) throws Exception {
-                        viewHolder.setSelected(true);
+                        if (mState.getAdapterState() != States.SELECT_MULTIPLE_TASKS) {
+                            switchToMultipleItemsSelectState(viewHolder);
+                        } else {
+                            auxHandleClickWhenInMultipleSelectState(viewHolder);
+                        }
                     }
-                })
-                .map(new Function<Object, Task>() {
-                    @Override
-                    public Task apply(@io.reactivex.annotations.NonNull Object o) throws Exception {
-                        return mState.getTask(viewHolder.getAdapterPosition());
-                    }
-                })
-                .subscribe(mLongClick);
+                });
 
         RxView.clicks(viewHolder.mEditButton)
                 .takeUntil(RxView.detaches(recyclerView))
@@ -192,6 +203,20 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
         return viewHolder;
     }
 
+    private void auxHandleClickWhenInMultipleSelectState(ViewHolder viewHolder) {
+        Task relatedTask = mState.getTask(viewHolder.getAdapterPosition());
+        if (mState.isOneOfTheSelected(relatedTask)) {
+            mState.removeTaskFromMultipleSelected(relatedTask);
+            viewHolder.showIsNotOneOfTheMultipleSelected();
+            if (mState.getNumMultipleSelected() == 0) {
+                switchToViewState();
+            }
+        } else {
+            mState.addTaskToMultipleSelected(relatedTask);
+            viewHolder.showIsOneOfTheMultipleSelected();
+        }
+    }
+
     @Override
     public void onBindViewHolder(ViewHolder holder, int position) {
         Task task = mState.getTask(position);
@@ -200,8 +225,14 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
         holder.mDescriptionTextView.setText(task.getDescription());
         holder.mTitleEditText.setText(task.getTitle());
         holder.mDescriptionEditText.setText(task.getDescription());
-        if (mState.isSelected(task)) {
-            holder.showState(mState.getSelectedTaskState());
+        if (mState.getAdapterState() == States.SELECT_MULTIPLE_TASKS) {
+            if (mState.isOneOfTheSelected(task)) {
+                holder.showIsOneOfTheMultipleSelected();
+            } else {
+                holder.showViewState();
+            }
+        } else if (mState.isSelected(task)) {
+            holder.showState(mState.getAdapterState());
         } else {
             holder.showViewState();
         }
@@ -228,41 +259,77 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
         this.mRecyclerView = recyclerView;
     }
 
-    public void switchToEditState(ViewHolder viewHolder) {
+    private void switchToEditState(ViewHolder viewHolder) {
         mState.selectTask(mState.getTask(viewHolder.getAdapterPosition()));
-        mState.setSelectedTaskState(EDIT_TASK);
+        changeState(States.EDIT_TASK);
         viewHolder.showEditState();
     }
 
-    public void switchToViewState() {
+    public void callMeWhenDeleteOperationIsFinished() {
+        switchToViewState();
+    }
+
+    public void callMeIfDeleteOperationFailed() {
+        switchToItemSelectedState(getCurrentlySelected());
+    }
+
+    public void callMeWhenUpdateOperationIsFinished() {
+        switchToViewState();
+    }
+
+    public void callMeIfUpdateOperationFailed() {
+        switchToEditState(getCurrentlySelected());
+    }
+
+    private void switchToViewState() {
         ViewHolder current = getCurrentlySelected();
         if (current != null) {
             current.showViewState();
         }
         mState.clearSelectedTask();
+        mState.clearMultipleSelected();
+        changeState(States.VIEW_TASK);
     }
 
-    public void switchToItemSelectedState(ViewHolder viewHolder) {
+    private void switchToItemSelectedState(ViewHolder viewHolder) {
         ViewHolder current = getCurrentlySelected();
         if (current != null) {
             current.showViewState();
         }
         mState.selectTask(mState.getTask(viewHolder.getAdapterPosition()));
-        mState.setSelectedTaskState(TASK_SELECTED);
         viewHolder.showItemSelectedState();
+        changeState(States.TASK_SELECTED);
     }
 
     private void switchToSavingState(ViewHolder viewHolder) {
-        mState.setSelectedTaskState(SAVING_TASK);
+        changeState(States.SAVING_TASK);
         viewHolder.showSavingState();
     }
 
     private void switchToDeletingState(ViewHolder viewHolder) {
-        mState.setSelectedTaskState(DELETING_TASK);
         viewHolder.showDeletingState();
+        changeState(States.DELETING_TASK);
     }
 
-    public static class ViewHolder extends RecyclerView.ViewHolder {
+
+    private void switchToMultipleItemsSelectState(ViewHolder viewHolder) {
+        viewHolder.showSelectedEffect();
+        ViewHolder current = getCurrentlySelected();
+        if (current != null) {
+            current.showViewState();
+        }
+        mState.clearSelectedTask();
+        mState.addTaskToMultipleSelected(mState.getTask(viewHolder.getAdapterPosition()));
+        changeState(States.SELECT_MULTIPLE_TASKS);
+    }
+
+    private void changeState(int newState) {
+        StateDelta delta = new StateDelta(mState.getAdapterState(), newState);
+        mState.setAdapterState(newState);
+        mStateChangeSubject.onNext(delta);
+    }
+
+    static class ViewHolder extends RecyclerView.ViewHolder {
         private final ConstraintLayout mLayout;
         private final ProgressBar mProgressBar;
         private final TextView mTitleTextView;
@@ -295,16 +362,16 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
                     mEditCancelButton);
         }
 
-        void setSelected(boolean selected) {
+        void showSelectedEffect() {
             if (android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                final RippleDrawable rd = (RippleDrawable) itemView.getContext().getResources().getDrawable(R.drawable.item_selected_ripple, itemView.getContext().getTheme());
+                final RippleDrawable rd = (RippleDrawable) ContextCompat.getDrawable(itemView.getContext(), R.drawable.item_selected_ripple);
                 mLayout.setBackground(rd);
                 final float centreX = itemView.getWidth() / 2;
                 final float centreY = itemView.getHeight() / 2;
                 rd.setHotspot(centreX, centreY);
                 rd.setState(new int[]{});
             } else {
-                mLayout.setSelected(selected);
+                mLayout.setSelected(true);
             }
         }
 
@@ -323,56 +390,104 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
         }
 
         private void showViewState() {
+            showDefaultBackground();
             showOnly(mTitleTextView, mDescriptionTextView);
         }
 
         private void showItemSelectedState() {
+            showDefaultBackground();
             showOnly(mTitleTextView, mDescriptionTextView, mDeleteButton, mEditButton);
         }
 
         private void showEditState() {
+            showDefaultBackground();
             showOnly(mTitleEditText, mDescriptionEditText, mEditSaveButton, mEditCancelButton);
         }
 
         private void showSavingState() {
+            showDefaultBackground();
             showOnly(mProgressBar);
         }
 
         private void showDeletingState() {
+            showDefaultBackground();
             showOnly(mProgressBar);
         }
 
         private void showState(int state) {
             switch (state) {
-                case VIEW_TASK:
+                case States.VIEW_TASK:
                     showViewState();
                     break;
-                case TASK_SELECTED:
+                case States.TASK_SELECTED:
                     showItemSelectedState();
                     break;
-                case EDIT_TASK:
+                case States.EDIT_TASK:
                     showEditState();
                     break;
-                case SAVING_TASK:
+                case States.SAVING_TASK:
                     showSavingState();
                     break;
-                case DELETING_TASK:
+                case States.DELETING_TASK:
                     showDeletingState();
                     break;
             }
         }
+
+        void showDefaultBackground() {
+            if (android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                mLayout.setBackground(ContextCompat.getDrawable(itemView.getContext(), R.drawable.item_task_press_events));
+            } else {
+                mLayout.setSelected(false);
+            }
+        }
+
+        void showIsNotOneOfTheMultipleSelected() {
+            mLayout.setBackgroundColor(ContextCompat.getColor(itemView.getContext(), android.R.color.transparent));
+        }
+
+        void showIsOneOfTheMultipleSelected() {
+            if (android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                mLayout.setBackgroundColor(ContextCompat.getColor(itemView.getContext(), R.color.colorSelectedBackground));
+            } else {
+                mLayout.setSelected(true);
+            }
+        }
     }
 
-    private static final int VIEW_TASK = 0;
-    private static final int TASK_SELECTED = 1;
-    private static final int EDIT_TASK = 2;
-    private static final int SAVING_TASK = 3;
-    private static final int DELETING_TASK = 4;
+    public interface States {
+        int VIEW_TASK = 0;
+        int TASK_SELECTED = 1;
+        int EDIT_TASK = 2;
+        int SAVING_TASK = 3;
+        int DELETING_TASK = 4;
+        int SELECT_MULTIPLE_TASKS = 4;
+    }
+
+    public static class StateDelta {
+        final private int previous;
+        final private int current;
+
+        StateDelta(int previous, int current) {
+            this.previous = previous;
+            this.current = current;
+        }
+
+        public int getPrevious() {
+            return previous;
+        }
+
+        public int getCurrent() {
+            return current;
+        }
+    }
 
     private static class AdapterState {
         private List<Task> mTasks = Collections.emptyList();
         private int mSelectedTaskId = -1;
-        private int mSelectedTaskState = VIEW_TASK;
+        private int mAdapterState = States.VIEW_TASK;
+        @SuppressLint("UseSparseArrays")
+        private Map<Integer, Boolean> mMultipleSelectedTasks = new HashMap<>();
         @SuppressLint("UseSparseArrays")
         private Map<Integer, Integer> mTaskId2Position = new HashMap<>();
 
@@ -392,7 +507,15 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
             if (mSelectedTaskId == -1) {
                 return null;
             } else {
-                return getTask(mTaskId2Position.get(mSelectedTaskId));
+                return getTaskById(mSelectedTaskId);
+            }
+        }
+
+        Integer getTaskPosition(Task task) {
+            if (contains(task)) {
+                return mTaskId2Position.get(task.getId());
+            } else {
+                return null;
             }
         }
 
@@ -400,20 +523,20 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
             return mSelectedTaskId != -1 && task.equals(getSelectedTask());
         }
 
-        Integer getSelectedTaskPosition() {
-            return mTaskId2Position.get(mSelectedTaskId);
+        int getAdapterState() {
+            return mAdapterState;
         }
 
-        int getSelectedTaskState() {
-            return mSelectedTaskState;
-        }
-
-        void setSelectedTaskState(int state) {
-            mSelectedTaskState = state;
+        void setAdapterState(int state) {
+            mAdapterState = state;
         }
 
         Task getTask(int position) {
             return mTasks.get(position);
+        }
+
+        private Task getTaskById(int id) {
+            return getTask(mTaskId2Position.get(id));
         }
 
         int getNumTasks() {
@@ -429,6 +552,34 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
 
         boolean contains(Task task) {
             return task != null && mTaskId2Position.containsKey(task.getId());
+        }
+
+        void addTaskToMultipleSelected(Task task) {
+            mMultipleSelectedTasks.put(task.getId(), true);
+        }
+
+        boolean isOneOfTheSelected(Task task) {
+            return mMultipleSelectedTasks.containsKey(task.getId());
+        }
+
+        void removeTaskFromMultipleSelected(Task task) {
+            mMultipleSelectedTasks.remove(task.getId());
+        }
+
+        int getNumMultipleSelected() {
+            return mMultipleSelectedTasks.size();
+        }
+
+        void clearMultipleSelected() {
+            mMultipleSelectedTasks.clear();
+        }
+
+        List<Task> getMultipleSelected() {
+            List<Task> result = new ArrayList<>();
+            for (Integer taskId : mMultipleSelectedTasks.keySet()) {
+                result.add(getTaskById(taskId));
+            }
+            return result;
         }
     }
 }

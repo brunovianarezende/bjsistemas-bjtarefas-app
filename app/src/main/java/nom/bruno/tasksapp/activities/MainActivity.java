@@ -10,6 +10,7 @@ import android.support.v7.widget.DividerItemDecoration;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.Toolbar;
+import android.text.TextUtils;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
@@ -21,7 +22,10 @@ import android.widget.ProgressBar;
 import com.google.gson.Gson;
 import com.jakewharton.rxbinding2.view.RxView;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -35,7 +39,6 @@ import io.reactivex.functions.Function;
 import io.reactivex.schedulers.Schedulers;
 import io.reactivex.subjects.PublishSubject;
 import nom.bruno.tasksapp.ExceptionHandler;
-import nom.bruno.tasksapp.LogWrapper;
 import nom.bruno.tasksapp.R;
 import nom.bruno.tasksapp.Utils;
 import nom.bruno.tasksapp.androidservices.NotificationService;
@@ -49,10 +52,9 @@ import nom.bruno.tasksapp.view.adapters.TasksAdapter;
 public class MainActivity extends AppCompatActivity {
     private TasksAdapter mAdapter = null;
     private ActivityState mState = new ActivityState();
-    private PublishSubject<Object> mAddTaskSubject = PublishSubject.create();
-    private AddTaskView mAddTaskView;
     private PublishSubject<Object> mUpdateTasksSubject = PublishSubject.create();
     private PublishSubject<Object> mActivityIsDestroyed = PublishSubject.create();
+    private IconBar mIconBar;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -64,11 +66,7 @@ public class MainActivity extends AppCompatActivity {
 
         setContentView(R.layout.activity_main);
 
-        mAddTaskView = new AddTaskView(this);
-
-        Toolbar toolbar = (Toolbar) findViewById(R.id.tasks_toolbar);
-        toolbar.setTitleTextColor(ContextCompat.getColor(this, R.color.colorToolbarTitle));
-        setSupportActionBar(toolbar);
+        mIconBar = IconBar.initializeToolbar(this);
 
         final RecyclerView rvTasks = (RecyclerView) findViewById(R.id.tasks_recycler_view);
         LinearLayoutManager layoutManager = new LinearLayoutManager(this);
@@ -112,11 +110,18 @@ public class MainActivity extends AppCompatActivity {
                                 .onErrorResumeNext(new Function<Throwable, ObservableSource<? extends MyVoid>>() {
                                     @Override
                                     public ObservableSource<? extends MyVoid> apply(@io.reactivex.annotations.NonNull Throwable throwable) throws Exception {
-                                        mAdapter.switchToItemSelectedState(mAdapter.getCurrentlySelected());
+                                        mAdapter.callMeIfDeleteOperationFailed();
                                         showServerError();
                                         return Observable.empty();
                                     }
                                 });
+                    }
+                })
+                .observeOn(AndroidSchedulers.mainThread())
+                .doOnNext(new Consumer<MyVoid>() {
+                    @Override
+                    public void accept(@io.reactivex.annotations.NonNull MyVoid myVoid) throws Exception {
+                        mAdapter.callMeWhenDeleteOperationIsFinished();
                     }
                 })
                 .subscribe(mUpdateTasksSubject);
@@ -132,35 +137,65 @@ public class MainActivity extends AppCompatActivity {
                                 .onErrorResumeNext(new Function<Throwable, ObservableSource<? extends MyVoid>>() {
                                     @Override
                                     public ObservableSource<? extends MyVoid> apply(@io.reactivex.annotations.NonNull Throwable throwable) throws Exception {
-                                        mAdapter.switchToEditState(mAdapter.getCurrentlySelected());
+                                        mAdapter.callMeIfUpdateOperationFailed();
                                         showServerError();
                                         return Observable.empty();
                                     }
                                 });
                     }
                 })
+                .observeOn(AndroidSchedulers.mainThread())
                 .doOnNext(new Consumer<MyVoid>() {
                     @Override
                     public void accept(@io.reactivex.annotations.NonNull MyVoid myVoid) throws Exception {
-                        mAdapter.switchToViewState();
+                        mAdapter.callMeWhenUpdateOperationIsFinished();
                     }
                 })
                 .subscribe(mUpdateTasksSubject);
 
-        mAdapter.onLongClick()
+        mAdapter.onStateChange()
                 .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(new Consumer<Task>() {
+                .subscribe(new Consumer<TasksAdapter.StateDelta>() {
                     @Override
-                    public void accept(@io.reactivex.annotations.NonNull Task task) throws Exception {
-                        Intent sendIntent = new Intent();
-                        sendIntent.setAction(Intent.ACTION_SEND);
-                        sendIntent.putExtra(Intent.EXTRA_TEXT, "This is my text to send.");
-                        sendIntent.setType("text/plain");
-                        startActivity(Intent.createChooser(sendIntent, "bla"));
+                    public void accept(@io.reactivex.annotations.NonNull TasksAdapter.StateDelta delta) throws Exception {
+                        if (delta.getCurrent() == TasksAdapter.States.SELECT_MULTIPLE_TASKS) {
+                            switchToSelectMultipleItemsState();
+                        } else if (delta.getPrevious() == TasksAdapter.States.SELECT_MULTIPLE_TASKS) {
+                            switchToDefaultState();
+                        }
                     }
                 });
 
-        mAddTaskSubject.observeOn(AndroidSchedulers.mainThread())
+        mIconBar.onShareTasks()
+                .map(new Function<Object, List<Task>>() {
+                    @Override
+                    public List<Task> apply(@io.reactivex.annotations.NonNull Object o) throws Exception {
+                        return mAdapter.getMultipleSelectedTasks();
+                    }
+                })
+                .subscribe(new Consumer<List<Task>>() {
+                    @Override
+                    public void accept(@io.reactivex.annotations.NonNull List<Task> tasks) throws Exception {
+                        List<String> content = new ArrayList<>();
+                        for (Task task : tasks) {
+                            List<String> temp = new ArrayList<>();
+                            if (!task.getTitle().isEmpty()) {
+                                temp.add(task.getTitle());
+                            }
+                            if (!task.getDescription().isEmpty()) {
+                                temp.add(task.getDescription());
+                            }
+                            content.add(TextUtils.join(" - ", temp));
+                        }
+                        Intent sendIntent = new Intent();
+                        sendIntent.setAction(Intent.ACTION_SEND);
+                        sendIntent.putExtra(Intent.EXTRA_TEXT, TextUtils.join("\n", content));
+                        sendIntent.setType("text/plain");
+                        startActivity(Intent.createChooser(sendIntent, MainActivity.this.getString(R.string.share_tasks)));
+                    }
+                });
+
+        mIconBar.onStartAddTask().observeOn(AndroidSchedulers.mainThread())
                 .subscribe(new Consumer<Object>() {
                     @Override
                     public void accept(@NonNull Object o) throws Exception {
@@ -168,7 +203,7 @@ public class MainActivity extends AppCompatActivity {
                     }
                 });
 
-        mAddTaskView.newTaskData()
+        mIconBar.newTaskData()
                 .observeOn(AndroidSchedulers.mainThread())
                 .doOnNext(new Consumer<TaskCreation>() {
                     @Override
@@ -202,7 +237,7 @@ public class MainActivity extends AppCompatActivity {
                 })
                 .subscribe(mUpdateTasksSubject);
 
-        mAddTaskView.getCancelAddNewTaskClicks()
+        mIconBar.getCancelAddNewTaskClicks()
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe(new Consumer<Object>() {
                     @Override
@@ -298,19 +333,24 @@ public class MainActivity extends AppCompatActivity {
     private void switchToDefaultState() {
         mState.setState(DEFAULT_STATE);
         hideKeyboard();
-        mAddTaskView.cleanFields();
-        mAddTaskView.showDefaultState();
+        mIconBar.switchToDefaultState(this);
     }
 
     private void switchToAddTaskState() {
         mState.setState(ADD_TASK_STATE);
-        mAddTaskView.showAddTaskState();
+        mIconBar.switchToAddTaskState();
     }
 
     private void switchToSavingNewTaskState() {
         mState.setState(SAVING_NEW_TASK_STATE);
         hideKeyboard();
-        mAddTaskView.showSavingNewTaskState();
+        mIconBar.switchToSavingNewTaskState();
+    }
+
+    private void switchToSelectMultipleItemsState() {
+        mState.setState(SELECT_MULTIPLE_ITEMS_STATE);
+        mIconBar.switchToMultipleItemsSelectedState(this);
+        hideKeyboard();
     }
 
     private void switchToState(int state) {
@@ -323,6 +363,9 @@ public class MainActivity extends AppCompatActivity {
                 break;
             case SAVING_NEW_TASK_STATE:
                 switchToSavingNewTaskState();
+                break;
+            case SELECT_MULTIPLE_ITEMS_STATE:
+                switchToSelectMultipleItemsState();
                 break;
         }
     }
@@ -338,18 +381,18 @@ public class MainActivity extends AppCompatActivity {
     public boolean onCreateOptionsMenu(Menu menu) {
         MenuInflater inflater = getMenuInflater();
         inflater.inflate(R.menu.tasks_menu, menu);
+        Set<Integer> menuItemsToShow = mIconBar.getMenuItemsToShow();
+        for (int i = 0; i < menu.size(); i++) {
+            MenuItem item = menu.getItem(i);
+            item.setVisible(menuItemsToShow.contains(item.getItemId()));
+        }
         return true;
     }
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        switch (item.getItemId()) {
-            case R.id.add_task:
-                mAddTaskSubject.onNext("");
-                return true;
-            default:
-                return super.onOptionsItemSelected(item);
-        }
+        boolean handled = mIconBar.onOptionsItemSelected(item);
+        return handled || super.onOptionsItemSelected(item);
     }
 
     private void deserializeState(String serializedState) {
@@ -363,7 +406,107 @@ public class MainActivity extends AppCompatActivity {
         return gson.toJson(mState);
     }
 
+    private static class IconBar {
+        private final AddTaskView mAddTaskView;
+        private final ShareTasksView mShareTasksView;
+
+        static IconBar initializeToolbar(MainActivity activity) {
+            Toolbar toolbar = (Toolbar) activity.findViewById(R.id.tasks_toolbar);
+            toolbar.setTitleTextColor(ContextCompat.getColor(activity, R.color.colorToolbarTitle));
+            activity.setSupportActionBar(toolbar);
+            return new IconBar(activity);
+        }
+
+        private IconBar(MainActivity activity) {
+            this.mAddTaskView = new AddTaskView(activity);
+            this.mShareTasksView = new ShareTasksView();
+        }
+
+        Observable<Object> onShareTasks() {
+            return mShareTasksView.onShareTasks();
+        }
+
+        Observable<Object> onStartAddTask() {
+            return mAddTaskView.onStartAddTask();
+        }
+
+        void switchToDefaultState(MainActivity activity) {
+            mAddTaskView.switchToDefaultState();
+            mShareTasksView.switchToHiddenState();
+            activity.invalidateOptionsMenu();
+        }
+
+        void switchToMultipleItemsSelectedState(MainActivity activity) {
+            mAddTaskView.switchToHiddenState();
+            mShareTasksView.switchToVisibleState();
+            activity.invalidateOptionsMenu();
+        }
+
+        void switchToAddTaskState() {
+            mAddTaskView.switchToAddTaskState();
+        }
+
+        void switchToSavingNewTaskState() {
+            mAddTaskView.switchToSavingNewTaskState();
+        }
+
+        Observable<TaskCreation> newTaskData() {
+            return mAddTaskView.newTaskData();
+        }
+
+        Observable<Object> getCancelAddNewTaskClicks() {
+            return mAddTaskView.getCancelAddNewTaskClicks();
+        }
+
+        boolean onOptionsItemSelected(MenuItem item) {
+            // ATTENTION: WILL CAUSE SIDE EFFECTS!
+            return mAddTaskView.onOptionsItemSelected(item)
+                    || mShareTasksView.onOptionsItemSelected(item);
+        }
+
+        Set<Integer> getMenuItemsToShow() {
+            Set<Integer> result = new HashSet<>();
+            result.addAll(mAddTaskView.getMenuItemsToShow());
+            result.addAll(mShareTasksView.getMenuItemsToShow());
+            return result;
+        }
+    }
+
+    private static class ShareTasksView {
+        private List<Integer> menuItemsToShow = new ArrayList<>();
+        private PublishSubject<Object> mShareTasksSubject = PublishSubject.create();
+
+        void switchToHiddenState() {
+            menuItemsToShow = Collections.emptyList();
+        }
+
+        void switchToVisibleState() {
+            menuItemsToShow = Collections.singletonList(R.id.share_tasks);
+        }
+
+        List<Integer> getMenuItemsToShow() {
+            return menuItemsToShow;
+        }
+
+        boolean onOptionsItemSelected(MenuItem item) {
+            switch (item.getItemId()) {
+                case R.id.share_tasks:
+                    mShareTasksSubject.onNext("");
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        Observable<Object> onShareTasks() {
+            return mShareTasksSubject;
+        }
+    }
+
     private static class AddTaskView {
+        private PublishSubject<Object> mAddTaskSubject = PublishSubject.create();
+        private List<Integer> menuItemsToShow = Collections.singletonList(R.id.add_task);
+
         private final ProgressBar mProgressBar;
         private final EditText mTitleEditText;
         private final EditText mDescriptionEditText;
@@ -373,7 +516,7 @@ public class MainActivity extends AppCompatActivity {
         private final Observable<Object> mSaveNewTaskClicks;
         private final Observable<Object> mCancelAddNewTaskClicks;
 
-        public AddTaskView(MainActivity activity) {
+        AddTaskView(MainActivity activity) {
             mProgressBar = (ProgressBar) activity.findViewById(R.id.tasks_progress_bar);
             mTitleEditText = (EditText) activity.findViewById(R.id.tasks_add_task_title);
             mDescriptionEditText = (EditText) activity.findViewById(R.id.tasks_add_task_description);
@@ -387,7 +530,7 @@ public class MainActivity extends AppCompatActivity {
                     .takeUntil(activity.isDestroyedObservable());
         }
 
-        public Observable<TaskCreation> newTaskData() {
+        Observable<TaskCreation> newTaskData() {
             return mSaveNewTaskClicks.map(new Function<Object, TaskCreation>() {
                 @Override
                 public TaskCreation apply(@io.reactivex.annotations.NonNull Object o) throws Exception {
@@ -396,7 +539,7 @@ public class MainActivity extends AppCompatActivity {
             });
         }
 
-        public Observable<Object> getCancelAddNewTaskClicks() {
+        Observable<Object> getCancelAddNewTaskClicks() {
             return mCancelAddNewTaskClicks;
         }
 
@@ -415,40 +558,60 @@ public class MainActivity extends AppCompatActivity {
         }
 
 
-        private void showAllFields() {
-            for (View view : allItems) {
-                view.setVisibility(View.VISIBLE);
-            }
-        }
-
         private void hideAllFields() {
             for (View view : allItems) {
                 view.setVisibility(View.GONE);
             }
         }
 
-        public void showDefaultState() {
+        void switchToDefaultState() {
+            menuItemsToShow = Collections.singletonList(R.id.add_task);
+            cleanFields();
             hideAllFields();
         }
 
-        public void showAddTaskState() {
+        void switchToAddTaskState() {
             showOnly(mTitleEditText, mDescriptionEditText, mAddSaveButton, mAddCancelButton);
         }
 
-        public void showSavingNewTaskState() {
+        void switchToSavingNewTaskState() {
             showOnly(mProgressBar);
         }
 
-        public void cleanFields() {
+        private void cleanFields() {
             mTitleEditText.setText("");
             mDescriptionEditText.setText("");
         }
 
-        public TaskCreation getNewTaskData() {
+        TaskCreation getNewTaskData() {
             TaskCreation taskData = new TaskCreation();
             taskData.setTitle(mTitleEditText.getText().toString());
             taskData.setDescription(mDescriptionEditText.getText().toString());
             return taskData;
+        }
+
+        void switchToHiddenState() {
+            cleanFields();
+            hideAllFields();
+            menuItemsToShow = Collections.emptyList();
+        }
+
+        Collection<? extends Integer> getMenuItemsToShow() {
+            return menuItemsToShow;
+        }
+
+        boolean onOptionsItemSelected(MenuItem item) {
+            switch (item.getItemId()) {
+                case R.id.add_task:
+                    mAddTaskSubject.onNext("");
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        Observable<Object> onStartAddTask() {
+            return mAddTaskSubject;
         }
     }
 
@@ -459,6 +622,7 @@ public class MainActivity extends AppCompatActivity {
     private static final int DEFAULT_STATE = 0;
     private static final int ADD_TASK_STATE = 1;
     private static final int SAVING_NEW_TASK_STATE = 2;
+    private static final int SELECT_MULTIPLE_ITEMS_STATE = 3;
 
     private static class ActivityState {
         private int mState;
@@ -471,5 +635,4 @@ public class MainActivity extends AppCompatActivity {
             this.mState = mState;
         }
     }
-
 }
