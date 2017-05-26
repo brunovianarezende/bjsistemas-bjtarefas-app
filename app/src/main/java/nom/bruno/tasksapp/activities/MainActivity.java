@@ -5,6 +5,7 @@ import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.design.widget.Snackbar;
 import android.support.v4.content.ContextCompat;
+import android.support.v7.app.ActionBar;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.text.TextUtils;
@@ -21,7 +22,6 @@ import com.jakewharton.rxbinding2.view.RxView;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -33,6 +33,7 @@ import io.reactivex.ObservableSource;
 import io.reactivex.android.schedulers.AndroidSchedulers;
 import io.reactivex.functions.Consumer;
 import io.reactivex.functions.Function;
+import io.reactivex.functions.Predicate;
 import io.reactivex.schedulers.Schedulers;
 import io.reactivex.subjects.PublishSubject;
 import nom.bruno.tasksapp.ExceptionHandler;
@@ -144,15 +145,34 @@ public class MainActivity extends AppCompatActivity {
                 .subscribe(mUpdateTasksSubject);
 
         mAdapter.onStateChange()
+                .filter(new Predicate<TasksAdapter.StateDelta>() {
+                    @Override
+                    public boolean test(@io.reactivex.annotations.NonNull TasksAdapter.StateDelta delta) throws Exception {
+                        return delta.getCurrent() == TasksAdapter.States.SELECT_MULTIPLE_TASKS;
+                    }
+                })
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe(new Consumer<TasksAdapter.StateDelta>() {
                     @Override
                     public void accept(@io.reactivex.annotations.NonNull TasksAdapter.StateDelta delta) throws Exception {
-                        if (delta.getCurrent() == TasksAdapter.States.SELECT_MULTIPLE_TASKS) {
-                            switchToSelectMultipleItemsState();
-                        } else if (delta.getPrevious() == TasksAdapter.States.SELECT_MULTIPLE_TASKS) {
-                            switchToDefaultState();
-                        }
+                        switchToSelectMultipleItemsState();
+                    }
+                });
+
+        Observable
+                .merge(mIconBar.onFinishShareTasks(),
+                        mAdapter.onStateChange().filter(new Predicate<TasksAdapter.StateDelta>() {
+                            @Override
+                            public boolean test(@io.reactivex.annotations.NonNull TasksAdapter.StateDelta delta) throws Exception {
+                                return delta.getPrevious() == TasksAdapter.States.SELECT_MULTIPLE_TASKS;
+                            }
+                        })
+                )
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(new Consumer<Object>() {
+                    @Override
+                    public void accept(@io.reactivex.annotations.NonNull Object o) throws Exception {
+                        switchToDefaultState();
                     }
                 });
 
@@ -324,6 +344,7 @@ public class MainActivity extends AppCompatActivity {
         mState.setState(DEFAULT_STATE);
         hideKeyboard();
         mIconBar.switchToDefaultState(this);
+        mAdapter.switchToViewState();
     }
 
     private void switchToAddTaskState() {
@@ -371,12 +392,7 @@ public class MainActivity extends AppCompatActivity {
     public boolean onCreateOptionsMenu(Menu menu) {
         MenuInflater inflater = getMenuInflater();
         inflater.inflate(R.menu.tasks_menu, menu);
-        Set<Integer> menuItemsToShow = mIconBar.getMenuItemsToShow();
-        for (int i = 0; i < menu.size(); i++) {
-            MenuItem item = menu.getItem(i);
-            item.setVisible(menuItemsToShow.contains(item.getItemId()));
-        }
-        return true;
+        return mIconBar.onCreateOptionsMenu(this, menu);
     }
 
     @Override
@@ -414,6 +430,10 @@ public class MainActivity extends AppCompatActivity {
 
         Observable<Object> onShareTasks() {
             return mShareTasksView.onShareTasks();
+        }
+
+        Observable<Object> onFinishShareTasks() {
+            return mShareTasksView.onFinishShareTasks();
         }
 
         Observable<Object> onStartAddTask() {
@@ -454,34 +474,34 @@ public class MainActivity extends AppCompatActivity {
                     || mShareTasksView.onOptionsItemSelected(item);
         }
 
-        Set<Integer> getMenuItemsToShow() {
-            Set<Integer> result = new HashSet<>();
-            result.addAll(mAddTaskView.getMenuItemsToShow());
-            result.addAll(mShareTasksView.getMenuItemsToShow());
-            return result;
+        boolean onCreateOptionsMenu(MainActivity activity, Menu menu) {
+            mAddTaskView.onCreateOptionsMenu(menu);
+            mShareTasksView.onCreateOptionsMenu(activity, menu);
+            return true;
         }
     }
 
     private static class ShareTasksView {
-        private List<Integer> menuItemsToShow = new ArrayList<>();
+        private final Set<Integer> mMyMenuItems = Collections.singleton(R.id.share_tasks);
         private PublishSubject<Object> mShareTasksSubject = PublishSubject.create();
+        private PublishSubject<Object> mFinishShareTasksSubject = PublishSubject.create();
+        private boolean mShowMyMenuItems = false;
 
         void switchToHiddenState() {
-            menuItemsToShow = Collections.emptyList();
+            mShowMyMenuItems = false;
         }
 
         void switchToVisibleState() {
-            menuItemsToShow = Collections.singletonList(R.id.share_tasks);
-        }
-
-        List<Integer> getMenuItemsToShow() {
-            return menuItemsToShow;
+            mShowMyMenuItems = true;
         }
 
         boolean onOptionsItemSelected(MenuItem item) {
             switch (item.getItemId()) {
                 case R.id.share_tasks:
                     mShareTasksSubject.onNext("");
+                    return true;
+                case android.R.id.home:
+                    mFinishShareTasksSubject.onNext("");
                     return true;
                 default:
                     return false;
@@ -491,11 +511,29 @@ public class MainActivity extends AppCompatActivity {
         Observable<Object> onShareTasks() {
             return mShareTasksSubject;
         }
+
+        void onCreateOptionsMenu(MainActivity activity, Menu menu) {
+            for (int i = 0; i < menu.size(); i++) {
+                MenuItem item = menu.getItem(i);
+                if (mMyMenuItems.contains(item.getItemId())) {
+                    item.setVisible(mShowMyMenuItems);
+                }
+            }
+            ActionBar supportActionBar = activity.getSupportActionBar();
+            if (supportActionBar != null) {
+                supportActionBar.setDisplayHomeAsUpEnabled(mShowMyMenuItems);
+            }
+        }
+
+        Observable<Object> onFinishShareTasks() {
+            return mFinishShareTasksSubject;
+        }
     }
 
     private static class AddTaskView {
         private PublishSubject<Object> mAddTaskSubject = PublishSubject.create();
-        private List<Integer> menuItemsToShow = Collections.singletonList(R.id.add_task);
+        private final Set<Integer> mMyMenuItems = Collections.singleton(R.id.add_task);
+        private boolean mShowMyMenuItems = true;
 
         private final ProgressBar mProgressBar;
         private final EditText mTitleEditText;
@@ -555,7 +593,7 @@ public class MainActivity extends AppCompatActivity {
         }
 
         void switchToDefaultState() {
-            menuItemsToShow = Collections.singletonList(R.id.add_task);
+            mShowMyMenuItems = true;
             cleanFields();
             hideAllFields();
         }
@@ -583,11 +621,7 @@ public class MainActivity extends AppCompatActivity {
         void switchToHiddenState() {
             cleanFields();
             hideAllFields();
-            menuItemsToShow = Collections.emptyList();
-        }
-
-        Collection<? extends Integer> getMenuItemsToShow() {
-            return menuItemsToShow;
+            mShowMyMenuItems = false;
         }
 
         boolean onOptionsItemSelected(MenuItem item) {
@@ -602,6 +636,15 @@ public class MainActivity extends AppCompatActivity {
 
         Observable<Object> onStartAddTask() {
             return mAddTaskSubject;
+        }
+
+        void onCreateOptionsMenu(Menu menu) {
+            for (int i = 0; i < menu.size(); i++) {
+                MenuItem item = menu.getItem(i);
+                if (mMyMenuItems.contains(item.getItemId())) {
+                    item.setVisible(mShowMyMenuItems);
+                }
+            }
         }
     }
 

@@ -268,7 +268,7 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
         notifyDataSetChanged();
     }
 
-    public void bindRecyclerView(RecyclerView recyclerView) {
+    private void bindRecyclerView(RecyclerView recyclerView) {
         recyclerView.setAdapter(this);
         this.mRecyclerView = recyclerView;
     }
@@ -295,12 +295,18 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
         switchToEditState(getCurrentlySelected());
     }
 
-    private void switchToViewState() {
+    public void switchToViewState() {
         ViewHolder current = getCurrentlySelected();
         if (current != null) {
             current.showViewState();
         }
         mState.clearSelectedTask();
+        if (mState.getNumMultipleSelected() > 0) {
+            for (Task task : mState.getMultipleSelected()) {
+                ViewHolder holder = getRelatedViewHolder(task);
+                holder.showViewState();
+            }
+        }
         mState.clearMultipleSelected();
         changeState(States.VIEW_TASK);
     }
