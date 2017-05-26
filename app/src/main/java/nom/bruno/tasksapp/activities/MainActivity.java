@@ -6,9 +6,6 @@ import android.support.annotation.NonNull;
 import android.support.design.widget.Snackbar;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
-import android.support.v7.widget.DividerItemDecoration;
-import android.support.v7.widget.LinearLayoutManager;
-import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.Toolbar;
 import android.text.TextUtils;
 import android.view.Menu;
@@ -68,14 +65,7 @@ public class MainActivity extends AppCompatActivity {
 
         mIconBar = IconBar.initializeToolbar(this);
 
-        final RecyclerView rvTasks = (RecyclerView) findViewById(R.id.tasks_recycler_view);
-        LinearLayoutManager layoutManager = new LinearLayoutManager(this);
-        DividerItemDecoration dividerItemDecoration = new DividerItemDecoration(rvTasks.getContext(),
-                layoutManager.getOrientation());
-        rvTasks.addItemDecoration(dividerItemDecoration);
-        mAdapter = new TasksAdapter(this);
-        mAdapter.bindRecyclerView(rvTasks);
-        rvTasks.setLayoutManager(layoutManager);
+        mAdapter = TasksAdapter.initializeTasksAdapter(this);
 
         final TaskService ts = TaskService.getInstance(this);
 

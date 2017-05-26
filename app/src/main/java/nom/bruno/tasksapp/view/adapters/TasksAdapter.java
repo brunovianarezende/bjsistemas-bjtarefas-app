@@ -8,6 +8,8 @@ import android.os.Build;
 import android.support.annotation.NonNull;
 import android.support.constraint.ConstraintLayout;
 import android.support.v4.content.ContextCompat;
+import android.support.v7.widget.DividerItemDecoration;
+import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -42,7 +44,19 @@ import nom.bruno.tasksapp.models.TaskUpdateParameters;
 public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> {
     private Activity mActivity;
 
-    public TasksAdapter(Activity activity) {
+    public static TasksAdapter initializeTasksAdapter(Activity activity) {
+        RecyclerView rvTasks = (RecyclerView) activity.findViewById(R.id.tasks_recycler_view);
+        LinearLayoutManager layoutManager = new LinearLayoutManager(activity);
+        DividerItemDecoration dividerItemDecoration = new DividerItemDecoration(rvTasks.getContext(),
+                layoutManager.getOrientation());
+        rvTasks.addItemDecoration(dividerItemDecoration);
+        TasksAdapter adapter = new TasksAdapter(activity);
+        adapter.bindRecyclerView(rvTasks);
+        rvTasks.setLayoutManager(layoutManager);
+        return adapter;
+    }
+
+    private TasksAdapter(Activity activity) {
         mActivity = activity;
     }
 
