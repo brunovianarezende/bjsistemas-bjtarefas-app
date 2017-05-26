@@ -327,11 +327,11 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
 
 
     private void switchToMultipleItemsSelectState(ViewHolder viewHolder) {
-        viewHolder.showSelectedEffect();
         ViewHolder current = getCurrentlySelected();
         if (current != null) {
             current.showViewState();
         }
+        viewHolder.showSelectedEffect();
         mState.clearSelectedTask();
         mState.addTaskToMultipleSelected(mState.getTask(viewHolder.getAdapterPosition()));
         changeState(States.SELECT_MULTIPLE_TASKS);
