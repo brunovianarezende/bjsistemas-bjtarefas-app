@@ -481,7 +481,7 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
         int EDIT_TASK = 2;
         int SAVING_TASK = 3;
         int DELETING_TASK = 4;
-        int SELECT_MULTIPLE_TASKS = 4;
+        int SELECT_MULTIPLE_TASKS = 5;
     }
 
     public static class StateDelta {
