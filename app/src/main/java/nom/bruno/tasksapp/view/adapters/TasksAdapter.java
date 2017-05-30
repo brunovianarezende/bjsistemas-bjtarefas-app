@@ -391,7 +391,20 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
                 rd.setHotspot(centreX, centreY);
                 rd.setState(new int[]{});
             } else {
-                mLayout.setSelected(true);
+                setSelected(true);
+            }
+        }
+
+        private void setSelected(boolean selected) {
+            // the approach I tried before was to use a selector with a different color if the state
+            // was selected - mLayout.setSelected(true) - but this didn't work well: it worked
+            // the first time the item was selected, but not the second time. If I called
+            // notififyItemChanged(...) it would work two times only. Instead of fighting android
+            // and waste a lot of time doing this, I'll just use a very simple workaround.
+            if (selected) {
+                mLayout.setBackgroundColor(ContextCompat.getColor(itemView.getContext(), R.color.colorSelectedBackground));
+            } else {
+                mLayout.setBackgroundColor(ContextCompat.getColor(itemView.getContext(), R.color.colorItemBackground));
             }
         }
 
@@ -458,7 +471,7 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                 mLayout.setBackground(ContextCompat.getDrawable(itemView.getContext(), R.drawable.item_task_press_events));
             } else {
-                mLayout.setSelected(false);
+                setSelected(false);
             }
         }
 
@@ -470,7 +483,7 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                 mLayout.setBackgroundColor(ContextCompat.getColor(itemView.getContext(), R.color.colorSelectedBackground));
             } else {
-                mLayout.setSelected(true);
+                setSelected(true);
             }
         }
     }

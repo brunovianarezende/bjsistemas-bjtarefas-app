@@ -1,6 +1,7 @@
 package nom.bruno.tasksapp.activities;
 
 import android.content.Intent;
+import android.os.Build;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.design.widget.Snackbar;
@@ -59,8 +60,10 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         // add exception handler
         Thread.setDefaultUncaughtExceptionHandler(new ExceptionHandler());
-        // hack to start notification service if it wasn't started on boot
-        NotificationService.scheduleJob(this);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            // hack to start notification service if it wasn't started on boot
+            NotificationService.scheduleJob(this);
+        }
 
         setContentView(R.layout.activity_main);
 
