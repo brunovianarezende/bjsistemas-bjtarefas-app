@@ -463,7 +463,7 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
         }
 
         void showIsNotOneOfTheMultipleSelected() {
-            mLayout.setBackgroundColor(ContextCompat.getColor(itemView.getContext(), android.R.color.transparent));
+            mLayout.setBackgroundColor(ContextCompat.getColor(itemView.getContext(), R.color.colorItemBackground));
         }
 
         void showIsOneOfTheMultipleSelected() {
