@@ -5,6 +5,6 @@
     <color name="colorAccent">#FF4081</color>
     <color name="colorToolbarTitle">#FAFAFA</color>
     <color name="colorSelectedBackground">#E8EAF6</color>
-    <color name="colorItemBackground">@android:color/background_light</color>
+    <color name="colorItemBackground">#FFFFFFFF</color>
 
 </resources>

@@ -11,6 +11,7 @@ import android.app.job.JobService;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.os.Build;
 import android.support.v4.app.NotificationCompat;
 import android.support.v4.app.TaskStackBuilder;
 
@@ -28,7 +29,7 @@ import nom.bruno.tasksapp.models.Task;
 import nom.bruno.tasksapp.models.TasksDelta;
 import nom.bruno.tasksapp.services.TaskService;
 
-@TargetApi(android.os.Build.VERSION_CODES.LOLLIPOP)
+@TargetApi(Build.VERSION_CODES.LOLLIPOP)
 public class NotificationService extends JobService {
     private static final int JOB_ID = 1;
     private static final int NOTIFICATION_ID = 1;
@@ -136,7 +137,7 @@ public class NotificationService extends JobService {
         // as desired: https://github.com/evernote/android-job/issues/26 and
         // https://developer.android.com/reference/android/app/job/JobInfo.Builder.html#setPeriodic(long)
         ComponentName serviceComponent = new ComponentName(context, NotificationService.class);
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             JobInfo.Builder builder = new JobInfo.Builder(JOB_ID, serviceComponent)
                     .setMinimumLatency(30 * 1000) // wait at least
                     .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY); // need network connection

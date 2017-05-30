@@ -383,7 +383,7 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
         }
 
         void showSelectedEffect() {
-            if (android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                 final RippleDrawable rd = (RippleDrawable) ContextCompat.getDrawable(itemView.getContext(), R.drawable.item_selected_ripple);
                 mLayout.setBackground(rd);
                 final float centreX = itemView.getWidth() / 2;
@@ -455,7 +455,7 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
         }
 
         void showDefaultBackground() {
-            if (android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                 mLayout.setBackground(ContextCompat.getDrawable(itemView.getContext(), R.drawable.item_task_press_events));
             } else {
                 mLayout.setSelected(false);
@@ -467,7 +467,7 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
         }
 
         void showIsOneOfTheMultipleSelected() {
-            if (android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                 mLayout.setBackgroundColor(ContextCompat.getColor(itemView.getContext(), R.color.colorSelectedBackground));
             } else {
                 mLayout.setSelected(true);
