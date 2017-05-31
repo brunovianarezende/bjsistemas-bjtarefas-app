@@ -14,15 +14,8 @@ public class TaskServiceHack {
 
     public static TaskService getInstance(Context context) {
         if (myInstance == null) {
-            if(!Constants.USE_STUBS) {
-                myInstance = new TaskServiceImpl(TasksStorage.create(context));
-            }
-            else {
-                myInstance = new TaskServiceStub();
-            }
+            myInstance = new TaskServiceImpl(TasksStorage.create(context));
         }
         return myInstance;
     }
-
-
 }

@@ -394,6 +394,7 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
+        super.onCreateOptionsMenu(menu);
         MenuInflater inflater = getMenuInflater();
         inflater.inflate(R.menu.tasks_menu, menu);
         return mIconBar.onCreateOptionsMenu(this, menu);
