@@ -46,6 +46,7 @@ import nom.bruno.tasksapp.models.Task;
 import nom.bruno.tasksapp.models.TaskCreation;
 import nom.bruno.tasksapp.models.TaskUpdateParameters;
 import nom.bruno.tasksapp.services.TaskService;
+import nom.bruno.tasksapp.services.TaskServiceHack;
 import nom.bruno.tasksapp.view.adapters.TasksAdapter;
 
 public class MainActivity extends AppCompatActivity {
@@ -71,7 +72,7 @@ public class MainActivity extends AppCompatActivity {
 
         mAdapter = TasksAdapter.initializeTasksAdapter(this);
 
-        final TaskService ts = TaskService.getInstance(this);
+        final TaskService ts = TaskServiceHack.getInstance(this);
 
         if (savedInstanceState == null) {
             List<Task> tasks = ts.getPersistedTasks();

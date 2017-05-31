@@ -28,6 +28,7 @@ import nom.bruno.tasksapp.activities.MainActivity;
 import nom.bruno.tasksapp.models.Task;
 import nom.bruno.tasksapp.models.TasksDelta;
 import nom.bruno.tasksapp.services.TaskService;
+import nom.bruno.tasksapp.services.TaskServiceHack;
 
 @TargetApi(Build.VERSION_CODES.LOLLIPOP)
 public class NotificationService extends JobService {
@@ -43,7 +44,7 @@ public class NotificationService extends JobService {
         if (app.isAppVisible()) {
             return false;
         } else {
-            TaskService ts = TaskService.getInstance(app);
+            TaskService ts = TaskServiceHack.getInstance(app);
             ts
                     .getTasksDelta()
                     .subscribe(new Observer<TasksDelta>() {
