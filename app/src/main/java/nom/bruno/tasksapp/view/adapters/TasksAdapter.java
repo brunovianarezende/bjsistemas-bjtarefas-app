@@ -237,6 +237,8 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
 
         holder.mTitleTextView.setText(task.getTitle());
         holder.mDescriptionTextView.setText(task.getDescription());
+        String currentEditTitleText = holder.mTitleEditText.getText().toString();
+        String currentEditDescriptionText = holder.mDescriptionEditText.getText().toString();
         holder.mTitleEditText.setText(task.getTitle());
         holder.mDescriptionEditText.setText(task.getDescription());
         if (mState.getAdapterState() == States.SELECT_MULTIPLE_TASKS) {
@@ -246,6 +248,10 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
                 holder.showViewState();
             }
         } else if (mState.isSelected(task)) {
+            if (mState.getAdapterState() == States.EDIT_TASK) {
+                holder.mTitleEditText.setText(currentEditTitleText);
+                holder.mDescriptionEditText.setText(currentEditDescriptionText);
+            }
             holder.showState(mState.getAdapterState());
         } else {
             holder.showViewState();

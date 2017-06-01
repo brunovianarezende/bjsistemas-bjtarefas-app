@@ -291,6 +291,13 @@ public class MainActivity extends AppCompatActivity {
                 });
     }
 
+    /*
+    only used in unit tests
+     */
+    void forceTasksUpdate() {
+        mUpdateTasksSubject.onNext("");
+    }
+
     private void showServerError() {
         Snackbar
                 .make(findViewById(R.id.tasks_coordinator_layout), R.string.error_in_server, getInteger(R.integer.error_message_length))
