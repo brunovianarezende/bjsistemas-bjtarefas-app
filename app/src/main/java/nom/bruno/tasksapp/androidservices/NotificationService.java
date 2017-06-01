@@ -23,12 +23,12 @@ import io.reactivex.disposables.Disposable;
 import nom.bruno.tasksapp.ExceptionHandler;
 import nom.bruno.tasksapp.LogWrapper;
 import nom.bruno.tasksapp.R;
+import nom.bruno.tasksapp.Singletons;
 import nom.bruno.tasksapp.TasksApplication;
 import nom.bruno.tasksapp.activities.MainActivity;
 import nom.bruno.tasksapp.models.Task;
 import nom.bruno.tasksapp.models.TasksDelta;
 import nom.bruno.tasksapp.services.TaskService;
-import nom.bruno.tasksapp.services.TaskServiceHack;
 
 @TargetApi(Build.VERSION_CODES.LOLLIPOP)
 public class NotificationService extends JobService {
@@ -44,7 +44,7 @@ public class NotificationService extends JobService {
         if (app.isAppVisible()) {
             return false;
         } else {
-            TaskService ts = TaskServiceHack.getInstance(app);
+            TaskService ts = Singletons.getTaskService(app);
             ts
                     .getTasksDelta()
                     .subscribe(new Observer<TasksDelta>() {

@@ -33,10 +33,10 @@ import retrofit2.http.POST;
 import retrofit2.http.PUT;
 import retrofit2.http.Path;
 
-class TaskServiceImpl implements TaskService {
+public class TaskServiceImpl implements TaskService {
     private final TasksStorage mTasksStorage;
 
-    TaskServiceImpl(TasksStorage tasksStorage) {
+    public TaskServiceImpl(TasksStorage tasksStorage) {
         mTasksStorage = tasksStorage;
     }
 

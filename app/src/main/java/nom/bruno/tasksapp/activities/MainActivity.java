@@ -39,6 +39,7 @@ import io.reactivex.schedulers.Schedulers;
 import io.reactivex.subjects.PublishSubject;
 import nom.bruno.tasksapp.ExceptionHandler;
 import nom.bruno.tasksapp.R;
+import nom.bruno.tasksapp.Singletons;
 import nom.bruno.tasksapp.Utils;
 import nom.bruno.tasksapp.androidservices.NotificationService;
 import nom.bruno.tasksapp.models.MyVoid;
@@ -46,7 +47,6 @@ import nom.bruno.tasksapp.models.Task;
 import nom.bruno.tasksapp.models.TaskCreation;
 import nom.bruno.tasksapp.models.TaskUpdateParameters;
 import nom.bruno.tasksapp.services.TaskService;
-import nom.bruno.tasksapp.services.TaskServiceHack;
 import nom.bruno.tasksapp.view.adapters.TasksAdapter;
 
 public class MainActivity extends AppCompatActivity {
@@ -72,7 +72,7 @@ public class MainActivity extends AppCompatActivity {
 
         mAdapter = TasksAdapter.initializeTasksAdapter(this);
 
-        final TaskService ts = TaskServiceHack.getInstance(this);
+        final TaskService ts = Singletons.getTaskService(this);
 
         if (savedInstanceState == null) {
             List<Task> tasks = ts.getPersistedTasks();

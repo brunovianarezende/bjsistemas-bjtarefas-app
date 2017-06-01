@@ -28,9 +28,9 @@ import io.reactivex.schedulers.Schedulers;
 import io.reactivex.schedulers.TestScheduler;
 import nom.bruno.tasksapp.BuildConfig;
 import nom.bruno.tasksapp.R;
+import nom.bruno.tasksapp.Singletons;
 import nom.bruno.tasksapp.models.TaskCreation;
 import nom.bruno.tasksapp.services.TaskService;
-import nom.bruno.tasksapp.services.TaskServiceHack;
 import nom.bruno.tasksapp.services.TaskServiceStub;
 import nom.bruno.tasksapp.shadows.ShadowToolbarActionBar;
 
@@ -52,7 +52,7 @@ public class MainActivityTest {
                 return myScheduler;
             }
         });
-        TaskServiceHack.setInstance(new TaskServiceStub());
+        Singletons.setTaskService(new TaskServiceStub());
     }
 
     @After
@@ -74,7 +74,7 @@ public class MainActivityTest {
     @Test
     public void testIconsOnShareState() {
         // make sure there will be an item in the list
-        TaskService ts = TaskServiceHack.getInstance(null);
+        TaskService ts = Singletons.getTaskService(null);
         TaskCreation tc = new TaskCreation();
         tc.setTitle("t");
         tc.setDescription("d");
@@ -100,7 +100,7 @@ public class MainActivityTest {
     @Test
     public void testItemBeingEditedMustNotBeUpdated() {
         // make sure there will be an item in the list
-        TaskService ts = TaskServiceHack.getInstance(null);
+        TaskService ts = Singletons.getTaskService(null);
         TaskCreation tc = new TaskCreation();
         tc.setTitle("t");
         tc.setDescription("d");
