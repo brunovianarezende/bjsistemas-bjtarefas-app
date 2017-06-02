@@ -58,6 +58,9 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
 
     private TasksAdapter(Activity activity) {
         mActivity = activity;
+        // enable optimization to rebind the same view to the same view holder every time. It's
+        // recommended to override getItemId and return a real stable id.
+        setHasStableIds(true);
     }
 
     private AdapterState mState = new AdapterState();
@@ -104,6 +107,8 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
         }
 
         mState = newState;
+        // TODO: use DiffUtil to modify only the items that have changed.
+        // NOTE: if an item is being edited, it must not be considered as having changed.
         notifyDataSetChanged();
     }
 
@@ -237,6 +242,12 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
 
         holder.mTitleTextView.setText(task.getTitle());
         holder.mDescriptionTextView.setText(task.getDescription());
+        /* TODO: change the way the edit state is preserved.
+         * It's not very wise to expect te recycler view to always bind the same view to the task.
+         * It can happen with 100% guarantee only if the ids are stable. In our case, this happens,
+         * but it is easy to forget about that and subtle bugs might happen. As a rule of thumb, it
+         * is better to not rely on this behaviour.
+        */
         String currentEditTitleText = holder.mTitleEditText.getText().toString();
         String currentEditDescriptionText = holder.mDescriptionEditText.getText().toString();
         holder.mTitleEditText.setText(task.getTitle());
@@ -261,6 +272,11 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
     @Override
     public int getItemCount() {
         return mState.getNumTasks();
+    }
+
+    @Override
+    public long getItemId(int position) {
+        return mState.getTask(position).getId();
     }
 
     public String serializeState() {
