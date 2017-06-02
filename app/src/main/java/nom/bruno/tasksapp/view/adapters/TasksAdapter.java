@@ -213,7 +213,7 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
                     @Override
                     public void accept(@NonNull Object o) throws Exception {
                         Utils.hideKeyboard(mActivity);
-                        viewHolder.showItemSelectedState();
+                        switchToItemSelectedState(viewHolder);
                     }
                 });
 

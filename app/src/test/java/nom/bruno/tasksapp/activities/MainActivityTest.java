@@ -152,8 +152,8 @@ public class MainActivityTest {
     @Test
     public void testItemBeingEditedMustNotBeMangledDueToViewReuse() {
         /*
-        * Depending on how many items there are in the recycler view, if the item appears in the
-         * screen and other details, the behaviour of view reuse might chance. The reuse and
+         * Depending on how many items there are in the recycler view, if the item appears in the
+         * screen and other details, the behaviour of view reuse might change. The reuse and
          * biding might start from first item and go up to the last item or start at the end
          * and go down to the first item. This means that an object might be rebound to a view
          * different from the one it was bound before, which might cause problems if the
@@ -224,6 +224,62 @@ public class MainActivityTest {
 
         assertEquals(((EditText) item.findViewById(R.id.item_task_edit_title)).getText().toString(), "New title");
         assertEquals(((EditText) item.findViewById(R.id.item_task_edit_description)).getText().toString(), "New description");
+    }
+
+    @Test
+    public void testBugWhenAnItemIsEditedEditionCancelledAndTasksAreUpdated() {
+        // make sure there will be an item in the list
+        TaskService ts = Singletons.getTaskService(null);
+        TaskCreation tc = new TaskCreation();
+        tc.setTitle("t");
+        tc.setDescription("d");
+        ts.addTask(tc).blockingFirst();
+
+        // get first item
+        MainActivity activity = Robolectric.buildActivity(MainActivity.class).create().start().resume().visible().get();
+        myScheduler.triggerActions();
+        RecyclerView rvTasks = (RecyclerView) activity.findViewById(R.id.tasks_recycler_view);
+        assertNotNull(rvTasks);
+        View firstItem = rvTasks.getChildAt(0);
+        assertNotNull(firstItem);
+
+        // select first item
+        firstItem.performClick();
+        myScheduler.triggerActions();
+
+        // starts editing the item
+        View editButton = firstItem.findViewById(R.id.item_task_edit);
+        editButton.performClick();
+        myScheduler.triggerActions();
+        assertEquals(firstItem.findViewById(R.id.item_task_edit).getVisibility(), View.GONE);
+        assertEquals(firstItem.findViewById(R.id.item_task_delete).getVisibility(), View.GONE);
+        assertEquals(firstItem.findViewById(R.id.item_task_title).getVisibility(), View.GONE);
+        assertEquals(firstItem.findViewById(R.id.item_task_description).getVisibility(), View.GONE);
+        assertEquals(firstItem.findViewById(R.id.item_task_edit_title).getVisibility(), View.VISIBLE);
+        assertEquals(firstItem.findViewById(R.id.item_task_edit_description).getVisibility(), View.VISIBLE);
+
+        // cancel edition
+        firstItem.findViewById(R.id.item_task_cancel_edit).performClick();
+        myScheduler.triggerActions();
+        assertEquals(firstItem.findViewById(R.id.item_task_edit).getVisibility(), View.VISIBLE);
+        assertEquals(firstItem.findViewById(R.id.item_task_delete).getVisibility(), View.VISIBLE);
+        assertEquals(firstItem.findViewById(R.id.item_task_title).getVisibility(), View.VISIBLE);
+        assertEquals(firstItem.findViewById(R.id.item_task_description).getVisibility(), View.VISIBLE);
+        assertEquals(firstItem.findViewById(R.id.item_task_edit_title).getVisibility(), View.GONE);
+        assertEquals(firstItem.findViewById(R.id.item_task_edit_description).getVisibility(), View.GONE);
+
+        // force a screen update (it could have happened because 30 seconds have passed)
+        activity.forceTasksUpdate();
+        myScheduler.advanceTimeBy(1000, TimeUnit.MILLISECONDS);
+        myScheduler.triggerActions();
+
+        // the state of the item must not have changed
+        assertEquals(firstItem.findViewById(R.id.item_task_edit).getVisibility(), View.VISIBLE);
+        assertEquals(firstItem.findViewById(R.id.item_task_delete).getVisibility(), View.VISIBLE);
+        assertEquals(firstItem.findViewById(R.id.item_task_title).getVisibility(), View.VISIBLE);
+        assertEquals(firstItem.findViewById(R.id.item_task_description).getVisibility(), View.VISIBLE);
+        assertEquals(firstItem.findViewById(R.id.item_task_edit_title).getVisibility(), View.GONE);
+        assertEquals(firstItem.findViewById(R.id.item_task_edit_description).getVisibility(), View.GONE);
     }
 
     private void assertShareIcons(MainActivity activity, boolean visible) {
