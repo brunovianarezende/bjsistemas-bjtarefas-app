@@ -100,6 +100,10 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
         return (ViewHolder) mRecyclerView.getChildViewHolder(mRecyclerView.getChildAt(mState.getTaskPosition(task)));
     }
 
+    private Task getRelatedTask(ViewHolder viewHolder) {
+        return mState.getTask(viewHolder.getAdapterPosition());
+    }
+
     public void updateTasks(final List<Task> tasks) {
         final AdapterState newState = new AdapterState();
         Task focusedTask = mState.getSelectedTask();
@@ -107,6 +111,15 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
         if (newState.contains(focusedTask)) {
             newState.selectTask(focusedTask);
             newState.setAdapterState(mState.getAdapterState());
+            if (mState.getAdapterState() == States.EDIT_TASK) {
+                // I'll save the current fields being edited so we can use it later
+                Task tempData = new Task();
+                ViewHolder holder = getRelatedViewHolder(focusedTask);
+                tempData.setId(focusedTask.getId());
+                tempData.setTitle(holder.mTitleEditText.getText().toString());
+                tempData.setDescription(holder.mDescriptionEditText.getText().toString());
+                newState.setPendingStateTask(tempData);
+            }
         }
 
         // NOTE: if an item is being edited, it must not be considered as having changed.
@@ -213,7 +226,7 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
                 .subscribe(new Consumer<Object>() {
                     @Override
                     public void accept(@NonNull Object o) throws Exception {
-                        Task relatedTask = mState.getTask(viewHolder.getAdapterPosition());
+                        Task relatedTask = getRelatedTask(viewHolder);
 
                         if (mState.getAdapterState() == States.SELECT_MULTIPLE_TASKS) {
                             auxHandleClickWhenInMultipleSelectState(viewHolder);
@@ -257,6 +270,9 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
                     @Override
                     public void accept(@NonNull Object o) throws Exception {
                         Utils.hideKeyboard(mActivity);
+                        Task relatedTask = getRelatedTask(viewHolder);
+                        viewHolder.mTitleEditText.setText(relatedTask.getTitle());
+                        viewHolder.mDescriptionEditText.setText(relatedTask.getDescription());
                         switchToItemSelectedState(viewHolder);
                     }
                 });
@@ -267,7 +283,7 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
     }
 
     private void auxHandleClickWhenInMultipleSelectState(ViewHolder viewHolder) {
-        Task relatedTask = mState.getTask(viewHolder.getAdapterPosition());
+        Task relatedTask = getRelatedTask(viewHolder);
         if (mState.isOneOfTheSelected(relatedTask)) {
             mState.removeTaskFromMultipleSelected(relatedTask);
             viewHolder.showIsNotOneOfTheMultipleSelected();
@@ -286,16 +302,9 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
 
         holder.mTitleTextView.setText(task.getTitle());
         holder.mDescriptionTextView.setText(task.getDescription());
-        /* TODO: change the way the edit state is preserved.
-         * It's not very wise to expect te recycler view to always bind the same view to the task.
-         * It can happen with 100% guarantee only if the ids are stable. In our case, this happens,
-         * but it is easy to forget about that and subtle bugs might happen. As a rule of thumb, it
-         * is better to not rely on this behaviour.
-        */
-        String currentEditTitleText = holder.mTitleEditText.getText().toString();
-        String currentEditDescriptionText = holder.mDescriptionEditText.getText().toString();
         holder.mTitleEditText.setText(task.getTitle());
         holder.mDescriptionEditText.setText(task.getDescription());
+
         if (mState.getAdapterState() == States.SELECT_MULTIPLE_TASKS) {
             if (mState.isOneOfTheSelected(task)) {
                 holder.showIsOneOfTheMultipleSelected();
@@ -304,8 +313,13 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
             }
         } else if (mState.isSelected(task)) {
             if (mState.getAdapterState() == States.EDIT_TASK) {
-                holder.mTitleEditText.setText(currentEditTitleText);
-                holder.mDescriptionEditText.setText(currentEditDescriptionText);
+                Task pendingState = mState.getPendingStateTask();
+                if (pendingState != null) {
+                    holder.mTitleEditText.setText(pendingState.getTitle());
+                    holder.mDescriptionEditText.setText(pendingState.getDescription());
+                    mState.clearPendingStateTask();
+                }
+
             }
             holder.showState(mState.getAdapterState());
         } else {
@@ -337,12 +351,6 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
     private void bindRecyclerView(RecyclerView recyclerView) {
         recyclerView.setAdapter(this);
         this.mRecyclerView = recyclerView;
-    }
-
-    private void switchToEditState(ViewHolder viewHolder) {
-        mState.selectTask(mState.getTask(viewHolder.getAdapterPosition()));
-        changeState(States.EDIT_TASK);
-        viewHolder.showEditState();
     }
 
     public void callMeWhenDeleteOperationIsFinished() {
@@ -377,12 +385,18 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
         changeState(States.VIEW_TASK);
     }
 
+    private void switchToEditState(ViewHolder viewHolder) {
+        mState.selectTask(getRelatedTask(viewHolder));
+        changeState(States.EDIT_TASK);
+        viewHolder.showEditState();
+    }
+
     private void switchToItemSelectedState(ViewHolder viewHolder) {
         ViewHolder current = getCurrentlySelected();
         if (current != null) {
             current.showViewState();
         }
-        mState.selectTask(mState.getTask(viewHolder.getAdapterPosition()));
+        mState.selectTask(getRelatedTask(viewHolder));
         viewHolder.showItemSelectedState();
         changeState(States.TASK_SELECTED);
     }
@@ -405,7 +419,7 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
         }
         viewHolder.showSelectedEffect();
         mState.clearSelectedTask();
-        mState.addTaskToMultipleSelected(mState.getTask(viewHolder.getAdapterPosition()));
+        mState.addTaskToMultipleSelected(getRelatedTask(viewHolder));
         changeState(States.SELECT_MULTIPLE_TASKS);
     }
 
@@ -589,6 +603,7 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
         private Map<Integer, Boolean> mMultipleSelectedTasks = new HashMap<>();
         @SuppressLint("UseSparseArrays")
         private Map<Integer, Integer> mTaskId2Position = new HashMap<>();
+        private Task mDataOfTaskBeingEdited;
 
         boolean hasTaskSelected() {
             return mSelectedTaskId != -1;
@@ -679,6 +694,18 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
                 result.add(getTaskById(taskId));
             }
             return result;
+        }
+
+        void setPendingStateTask(@NonNull Task task) {
+            this.mDataOfTaskBeingEdited = task;
+        }
+
+        Task getPendingStateTask() {
+            return mDataOfTaskBeingEdited;
+        }
+
+        void clearPendingStateTask() {
+            mDataOfTaskBeingEdited = null;
         }
     }
 }

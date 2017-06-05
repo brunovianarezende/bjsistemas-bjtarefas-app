@@ -5,6 +5,7 @@ import android.support.v7.widget.RecyclerView;
 import android.view.Menu;
 import android.view.View;
 import android.widget.EditText;
+import android.widget.TextView;
 
 import org.junit.After;
 import org.junit.Before;
@@ -29,6 +30,7 @@ import nom.bruno.tasksapp.BuildConfig;
 import nom.bruno.tasksapp.R;
 import nom.bruno.tasksapp.Singletons;
 import nom.bruno.tasksapp.models.TaskCreation;
+import nom.bruno.tasksapp.models.TaskUpdate;
 import nom.bruno.tasksapp.services.TaskService;
 import nom.bruno.tasksapp.services.TaskServiceStub;
 import nom.bruno.tasksapp.shadows.ShadowToolbarActionBar;
@@ -297,6 +299,65 @@ public class MainActivityTest {
         assertEquals(firstItem.findViewById(R.id.item_task_description).getVisibility(), View.VISIBLE);
         assertEquals(firstItem.findViewById(R.id.item_task_edit_title).getVisibility(), View.GONE);
         assertEquals(firstItem.findViewById(R.id.item_task_edit_description).getVisibility(), View.GONE);
+    }
+
+    @SuppressLint("SetTextI18n")
+    @Test
+    public void testItemBeingEditedUpdatedByOtherUser() {
+        // make sure there will be an item in the list
+        TaskService ts = Singletons.getTaskService(null);
+        TaskCreation tc = new TaskCreation();
+        tc.setTitle("t");
+        tc.setDescription("d");
+        int taskId = ts.addTask(tc).blockingFirst();
+
+        // get first item
+        MainActivity activity = Robolectric.buildActivity(MainActivity.class).create().start().resume().visible().get();
+        myScheduler.triggerActions();
+        RecyclerView rvTasks = (RecyclerView) activity.findViewById(R.id.tasks_recycler_view);
+        assertNotNull(rvTasks);
+        View firstItem = rvTasks.getChildAt(0);
+        assertNotNull(firstItem);
+
+        // select first item
+        firstItem.performClick();
+        myScheduler.triggerActions();
+
+        // starts editing the item
+        View editButton = firstItem.findViewById(R.id.item_task_edit);
+        editButton.performClick();
+        myScheduler.triggerActions();
+        // change title and description in the interface
+        ((EditText) firstItem.findViewById(R.id.item_task_edit_title)).setText("New title");
+        myScheduler.triggerActions();
+
+        // meanwhile, some other user changed the content of the task
+        TaskUpdate tu = new TaskUpdate();
+        tu.setTitle("my title");
+        tu.setDescription("my description");
+        ts.updateTask(taskId, tu).blockingFirst();
+
+        // then the screen is updated
+        activity.forceTasksUpdate();
+        myScheduler.advanceTimeBy(1000, TimeUnit.MILLISECONDS);
+        myScheduler.triggerActions();
+
+        // and the content of the edited item must not be updated
+        firstItem = rvTasks.getChildAt(0);
+        assertEquals(((EditText) firstItem.findViewById(R.id.item_task_edit_title)).getText().toString(), "New title");
+        assertEquals(((EditText) firstItem.findViewById(R.id.item_task_edit_description)).getText().toString(), "d");
+
+        // although if I cancel the edition, the new content must be there
+        firstItem.findViewById(R.id.item_task_cancel_edit).performClick();
+        myScheduler.triggerActions();
+        assertEquals(((TextView)firstItem.findViewById(R.id.item_task_title)).getText(), "my title");
+        assertEquals(((TextView)firstItem.findViewById(R.id.item_task_description)).getText(), "my description");
+
+        // and if I edit it again, the new content must be there too
+        firstItem.findViewById(R.id.item_task_edit).performClick();
+        myScheduler.triggerActions();
+        assertEquals(((EditText) firstItem.findViewById(R.id.item_task_edit_title)).getText().toString(), "my title");
+        assertEquals(((EditText) firstItem.findViewById(R.id.item_task_edit_description)).getText().toString(), "my description");
     }
 
     private void assertShareIcons(MainActivity activity, boolean visible) {
