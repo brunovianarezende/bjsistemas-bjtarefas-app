@@ -8,7 +8,6 @@ import android.widget.EditText;
 
 import org.junit.After;
 import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.Robolectric;
@@ -47,6 +46,24 @@ public class MainActivityTest {
     @Before
     public void setup() {
         RxAndroidPlugins.setMainThreadSchedulerHandler(new Function<Scheduler, Scheduler>() {
+            @Override
+            public Scheduler apply(@NonNull Scheduler scheduler) throws Exception {
+                return myScheduler;
+            }
+        });
+        RxAndroidPlugins.setInitMainThreadSchedulerHandler(new Function<Callable<Scheduler>, Scheduler>() {
+            @Override
+            public Scheduler apply(@NonNull Callable<Scheduler> schedulerCallable) throws Exception {
+                return myScheduler;
+            }
+        });
+        RxJavaPlugins.setIoSchedulerHandler(new Function<Scheduler, Scheduler>() {
+            @Override
+            public Scheduler apply(@NonNull Scheduler scheduler) throws Exception {
+                return Schedulers.trampoline();
+            }
+        });
+        RxJavaPlugins.setComputationSchedulerHandler(new Function<Scheduler, Scheduler>() {
             @Override
             public Scheduler apply(@NonNull Scheduler scheduler) throws Exception {
                 return myScheduler;
@@ -300,28 +317,6 @@ public class MainActivityTest {
         } else {
             assertTrue(menu.findItem(iconId) == null || !menu.findItem(iconId).isVisible());
         }
-    }
-
-    @BeforeClass
-    public static void setupClass() {
-        RxAndroidPlugins.setInitMainThreadSchedulerHandler(new Function<Callable<Scheduler>, Scheduler>() {
-            @Override
-            public Scheduler apply(@NonNull Callable<Scheduler> schedulerCallable) throws Exception {
-                return myScheduler;
-            }
-        });
-        RxJavaPlugins.setIoSchedulerHandler(new Function<Scheduler, Scheduler>() {
-            @Override
-            public Scheduler apply(@NonNull Scheduler scheduler) throws Exception {
-                return Schedulers.trampoline();
-            }
-        });
-        RxJavaPlugins.setComputationSchedulerHandler(new Function<Scheduler, Scheduler>() {
-            @Override
-            public Scheduler apply(@NonNull Scheduler scheduler) throws Exception {
-                return myScheduler;
-            }
-        });
     }
 }
 

@@ -131,8 +131,7 @@ public class TaskServiceImpl implements TaskService {
                                 result.getNewTasks().add(task);
                             } else {
                                 Task oldTask = oldTasksMapping.get(task.getId());
-                                if (!oldTask.getDescription().equals(task.getDescription())
-                                        || !oldTask.getTitle().equals(task.getTitle())) {
+                                if (!oldTask.isContentEquals(task)) {
                                     result.getUpdatedTasks().add(task);
                                 }
                             }

@@ -1,5 +1,7 @@
 package nom.bruno.tasksapp.models;
 
+import android.text.TextUtils;
+
 public class Task {
     private int id;
     private String title;
@@ -31,5 +33,13 @@ public class Task {
 
     public boolean equals(Task other) {
         return this.getId() == other.getId();
+    }
+
+    public boolean isContentEquals(Task other) {
+        if (other == null) {
+            return false;
+        }
+        return TextUtils.equals(title, other.getTitle())
+                && TextUtils.equals(description, other.getDescription());
     }
 }

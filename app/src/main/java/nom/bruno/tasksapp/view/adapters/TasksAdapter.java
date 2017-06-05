@@ -8,6 +8,7 @@ import android.os.Build;
 import android.support.annotation.NonNull;
 import android.support.constraint.ConstraintLayout;
 import android.support.v4.content.ContextCompat;
+import android.support.v7.util.DiffUtil;
 import android.support.v7.widget.DividerItemDecoration;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
@@ -32,8 +33,10 @@ import java.util.Map;
 import java.util.Set;
 
 import io.reactivex.Observable;
+import io.reactivex.android.schedulers.AndroidSchedulers;
 import io.reactivex.functions.Consumer;
 import io.reactivex.functions.Function;
+import io.reactivex.schedulers.Schedulers;
 import io.reactivex.subjects.PublishSubject;
 import nom.bruno.tasksapp.R;
 import nom.bruno.tasksapp.Utils;
@@ -97,8 +100,8 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
         return (ViewHolder) mRecyclerView.getChildViewHolder(mRecyclerView.getChildAt(mState.getTaskPosition(task)));
     }
 
-    public void updateTasks(List<Task> tasks) {
-        AdapterState newState = new AdapterState();
+    public void updateTasks(final List<Task> tasks) {
+        final AdapterState newState = new AdapterState();
         Task focusedTask = mState.getSelectedTask();
         newState.setTasks(tasks);
         if (newState.contains(focusedTask)) {
@@ -106,10 +109,51 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
             newState.setAdapterState(mState.getAdapterState());
         }
 
-        mState = newState;
-        // TODO: use DiffUtil to modify only the items that have changed.
         // NOTE: if an item is being edited, it must not be considered as having changed.
-        notifyDataSetChanged();
+        Observable
+                .just(1)
+                .observeOn(Schedulers.computation())
+                .map(new Function<Integer, DiffUtil.DiffResult>() {
+                    @Override
+                    public DiffUtil.DiffResult apply(@io.reactivex.annotations.NonNull Integer integer) throws Exception {
+                        return DiffUtil.calculateDiff(new DiffUtil.Callback() {
+                            @Override
+                            public int getOldListSize() {
+                                return mState.getNumTasks();
+                            }
+
+                            @Override
+                            public int getNewListSize() {
+                                return tasks.size();
+                            }
+
+                            @Override
+                            public boolean areItemsTheSame(int oldItemPosition, int newItemPosition) {
+                                return mState.getTask(oldItemPosition).equals(tasks.get(newItemPosition));
+                            }
+
+                            @Override
+                            public boolean areContentsTheSame(int oldItemPosition, int newItemPosition) {
+                                return mState.getTask(oldItemPosition).isContentEquals(tasks.get(newItemPosition));
+                            }
+                        });
+                    }
+                })
+                .observeOn(AndroidSchedulers.mainThread())
+                .doOnNext(new Consumer<DiffUtil.DiffResult>() {
+                    @Override
+                    public void accept(@io.reactivex.annotations.NonNull DiffUtil.DiffResult diffResult) throws Exception {
+                        mState = newState;
+                    }
+                })
+                .subscribe(new Consumer<DiffUtil.DiffResult>() {
+                    @Override
+                    public void accept(@io.reactivex.annotations.NonNull DiffUtil.DiffResult diffResult) throws Exception {
+                        diffResult
+                                .dispatchUpdatesTo(TasksAdapter.this);
+                    }
+                })
+        ;
     }
 
     public List<Task> getMultipleSelectedTasks() {
