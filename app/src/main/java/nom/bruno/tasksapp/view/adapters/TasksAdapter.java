@@ -502,29 +502,40 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
             }
         }
 
+        private void setElevation(int elevationInDp) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                itemView.setElevation(elevationInDp);
+            }
+        }
+
         private void showViewState() {
             showDefaultBackground();
             showOnly(mTitleTextView, mDescriptionTextView);
+            setElevation(2);
         }
 
         private void showItemSelectedState() {
             showDefaultBackground();
             showOnly(mTitleTextView, mDescriptionTextView, mDeleteButton, mEditButton);
+            setElevation(8);
         }
 
         private void showEditState() {
             showDefaultBackground();
             showOnly(mTitleEditText, mDescriptionEditText, mEditSaveButton, mEditCancelButton);
+            setElevation(8);
         }
 
         private void showSavingState() {
             showDefaultBackground();
             showOnly(mProgressBar);
+            setElevation(8);
         }
 
         private void showDeletingState() {
             showDefaultBackground();
             showOnly(mProgressBar);
+            setElevation(8);
         }
 
         private void showState(int state) {
@@ -568,6 +579,7 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
         }
     }
 
+    // TODO: maybe I can use an annotation to be able to have AS type check these states?
     public interface States {
         int VIEW_TASK = 0;
         int TASK_SELECTED = 1;
