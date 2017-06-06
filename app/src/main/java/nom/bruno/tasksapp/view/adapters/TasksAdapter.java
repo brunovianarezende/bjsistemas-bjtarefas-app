@@ -12,6 +12,7 @@ import android.support.v7.util.DiffUtil;
 import android.support.v7.widget.DividerItemDecoration;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.support.v7.widget.helper.ItemTouchHelper;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -46,6 +47,7 @@ import nom.bruno.tasksapp.models.TaskUpdateParameters;
 
 public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> {
     private Activity mActivity;
+    private ItemTouchHelper mTouchHelper;
 
     public static TasksAdapter initializeTasksAdapter(Activity activity) {
         RecyclerView rvTasks = (RecyclerView) activity.findViewById(R.id.tasks_recycler_view);
@@ -56,6 +58,7 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
         TasksAdapter adapter = new TasksAdapter(activity);
         adapter.bindRecyclerView(rvTasks);
         rvTasks.setLayoutManager(layoutManager);
+
         return adapter;
     }
 
@@ -250,7 +253,8 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
                         if (mState.getAdapterState() != States.SELECT_MULTIPLE_TASKS) {
                             switchToMultipleItemsSelectState(viewHolder);
                         } else {
-                            auxHandleClickWhenInMultipleSelectState(viewHolder);
+                            mTouchHelper.startDrag(viewHolder);
+//                            auxHandleClickWhenInMultipleSelectState(viewHolder);
                         }
                     }
                 });
@@ -351,6 +355,11 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
     private void bindRecyclerView(RecyclerView recyclerView) {
         recyclerView.setAdapter(this);
         this.mRecyclerView = recyclerView;
+
+        ItemTouchHelper.Callback callback =
+                new ItemTouchHelperCallback(this);
+        mTouchHelper = new ItemTouchHelper(callback);
+        mTouchHelper.attachToRecyclerView(recyclerView);
     }
 
     public void callMeWhenDeleteOperationIsFinished() {
@@ -719,5 +728,51 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
         void clearPendingStateTask() {
             mDataOfTaskBeingEdited = null;
         }
+    }
+
+    private static class ItemTouchHelperCallback extends ItemTouchHelper.Callback {
+        private final TasksAdapter mAdapter;
+
+        private ItemTouchHelperCallback(TasksAdapter adapter) {
+            this.mAdapter = adapter;
+        }
+
+        @Override
+        public boolean isLongPressDragEnabled() {
+            return false;
+        }
+
+        @Override
+        public boolean isItemViewSwipeEnabled() {
+            return false;
+        }
+
+        @Override
+        public int getMovementFlags(RecyclerView recyclerView, RecyclerView.ViewHolder viewHolder) {
+            return makeMovementFlags(ItemTouchHelper.UP | ItemTouchHelper.DOWN, 0);
+        }
+
+        @Override
+        public boolean onMove(RecyclerView recyclerView, RecyclerView.ViewHolder viewHolder, RecyclerView.ViewHolder target) {
+            mAdapter.onItemMove(viewHolder.getAdapterPosition(), target.getAdapterPosition());
+            return true;
+        }
+
+        @Override
+        public void onSwiped(RecyclerView.ViewHolder viewHolder, int direction) {
+        }
+    }
+
+    private void onItemMove(int fromPosition, int toPosition) {
+        if (fromPosition < toPosition) {
+            for (int i = fromPosition; i < toPosition; i++) {
+                Collections.swap(mState.mTasks, i, i + 1);
+            }
+        } else {
+            for (int i = fromPosition; i > toPosition; i--) {
+                Collections.swap(mState.mTasks, i, i - 1);
+            }
+        }
+        notifyItemMoved(fromPosition, toPosition);
     }
 }
