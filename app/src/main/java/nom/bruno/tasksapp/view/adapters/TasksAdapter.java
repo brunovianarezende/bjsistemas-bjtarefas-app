@@ -50,7 +50,6 @@ import nom.bruno.tasksapp.models.TaskUpdate;
 import nom.bruno.tasksapp.models.TaskUpdateParameters;
 
 public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> {
-    public static float mDragThreshold = 0f;
     private Activity mActivity;
     private ItemTouchHelper mTouchHelper;
 
@@ -768,7 +767,7 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
         }
     }
 
-    private static class ItemTouchHelperCallback extends ItemTouchHelper.Callback {
+    private static class ItemTouchHelperCallback extends BaseItemTouchHelperCallback {
         private final TasksAdapter mAdapter;
 
         private ItemTouchHelperCallback(TasksAdapter adapter) {
@@ -804,16 +803,6 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
 
         @Override
         public void onSwiped(RecyclerView.ViewHolder viewHolder, int direction) {
-        }
-
-        @Override
-        public float getMoveThreshold(RecyclerView.ViewHolder viewHolder) {
-            if(TasksAdapter.mDragThreshold == 0f) {
-                return super.getMoveThreshold(viewHolder);
-            }
-            else {
-                return TasksAdapter.mDragThreshold;
-            }
         }
     }
 

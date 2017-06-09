@@ -1,7 +1,6 @@
 package nom.bruno.tasksapp.activities;
 
 import android.annotation.SuppressLint;
-import android.support.v4.view.MotionEventCompat;
 import android.support.v7.widget.RecyclerView;
 import android.view.Menu;
 import android.view.MotionEvent;
@@ -38,7 +37,7 @@ import nom.bruno.tasksapp.models.TaskUpdate;
 import nom.bruno.tasksapp.services.TaskService;
 import nom.bruno.tasksapp.services.TaskServiceStub;
 import nom.bruno.tasksapp.shadows.ShadowToolbarActionBar;
-import nom.bruno.tasksapp.view.adapters.TasksAdapter;
+import nom.bruno.tasksapp.view.adapters.BaseItemTouchHelperCallback;
 
 import static junit.framework.Assert.assertEquals;
 import static junit.framework.Assert.assertNotNull;
@@ -52,7 +51,8 @@ public class MainActivityTest {
 
     @BeforeClass
     public static void setupClass() {
-        TasksAdapter.mDragThreshold = 0.1f;
+        // make the moveThreshold lower so that drag and drop in Robolectric works as expected
+        BaseItemTouchHelperCallback.moveThreshold = 0.1f;
     }
 
     @Before
@@ -370,7 +370,8 @@ public class MainActivityTest {
         View targetItem = getItem(activity, numItems - 3);
 
         // check if I can move item
-        moveItemBefore(activity, targetItem, selectedItem);
+        View moveButton = selectedItem.findViewById(R.id.item_task_move);
+        dragItemBeforeTarget(moveButton, targetItem, selectedItem);
 
         // check final order of items
         int[] expected = new int[]{0, 1, 4, 2, 3};
@@ -390,35 +391,43 @@ public class MainActivityTest {
         assertEquals(((TextView) item.findViewById(R.id.item_task_description)).getText(), description);
     }
 
-    private void moveItemBefore(MainActivity activity, View targetItem, View selectedItem) {
-        int targetPosition = ((RecyclerView) targetItem.getParent()).getChildLayoutPosition(targetItem);
-        int selectedItemPosition = ((RecyclerView) selectedItem.getParent()).getChildLayoutPosition(selectedItem);
+    private void dragItemBeforeTarget(View touchItemToTriggerDragAnDrop, View targetItem, View selectedItem) {
+        int centerX = triggerDragAndDrop(touchItemToTriggerDragAnDrop);
 
-        View moveButton = selectedItem.findViewById(R.id.item_task_move);
+        RecyclerView rvTasks = (RecyclerView) selectedItem.getParent();
 
-        int[] moveButtonCoordinates = new int[2];
-        moveButton.getLocationInWindow(moveButtonCoordinates);
-        int left = moveButtonCoordinates[0];
-        int top = moveButtonCoordinates[1];
-        int centerX = (int) (left + moveButton.getWidth() / 2);
-        int centerY = (int) (top + moveButton.getHeight() / 2);
-
-        dispatchTouchEvent(moveButton, MotionEvent.ACTION_DOWN, centerX, centerY);
-
-        RecyclerView rvTasks = (RecyclerView) activity.findViewById(R.id.tasks_recycler_view);
+        // the recycler view must also react to the initial touch action
         dispatchTouchEvent(rvTasks, MotionEvent.ACTION_DOWN, centerX, selectedItem.getTop());
-        assertNotNull(rvTasks);
+        // this initial ACTION_MOVE call is needed to initialise some internal states
+        dispatchTouchEvent(rvTasks, MotionEvent.ACTION_MOVE, centerX, selectedItem.getTop());
 
-        rvTasks.onTouchEvent(ShadowMotionEvent.obtain(0, 100, MotionEvent.ACTION_MOVE, centerX, selectedItem.getTop(), 0));
+        // now we move the item up to the target, one item by one
+        int targetPosition = rvTasks.getChildLayoutPosition(targetItem);
+        int selectedItemPosition = rvTasks.getChildLayoutPosition(selectedItem);
         for (int currentPosition = selectedItemPosition - 1; currentPosition >= targetPosition; currentPosition--) {
             View currentItem = rvTasks.getChildAt(currentPosition);
             int target = currentItem.getTop() - 1;
-            rvTasks.onTouchEvent(ShadowMotionEvent.obtain(0, 100, MotionEvent.ACTION_MOVE, centerX, target, 0));
+            dispatchTouchEvent(rvTasks, MotionEvent.ACTION_MOVE, centerX, target);
         }
     }
 
+    private int triggerDragAndDrop(View touchItemToTriggerDragAnDrop) {
+        // start the drag and drop action. The action that will trigger it must be a touch
+        int[] triggerCoordinates = new int[2];
+        touchItemToTriggerDragAnDrop.getLocationInWindow(triggerCoordinates);
+        int left = triggerCoordinates[0];
+        int top = triggerCoordinates[1];
+        int centerX = left + touchItemToTriggerDragAnDrop.getWidth() / 2;
+        int centerY = top + touchItemToTriggerDragAnDrop.getHeight() / 2;
+        dispatchTouchEvent(touchItemToTriggerDragAnDrop, MotionEvent.ACTION_DOWN, centerX, centerY);
+        // dispatch an ACTION_CANCEL event just to be consistent with the run time behaviour
+        // when we use ItemTouchHelper
+        dispatchTouchEvent(touchItemToTriggerDragAnDrop, MotionEvent.ACTION_CANCEL, centerX, centerY);
+        return centerX;
+    }
+
     private void dispatchTouchEvent(View view, int action, int x, int y) {
-        view.dispatchTouchEvent(MotionEvent.obtain(0, 100, action, x, y, 0));
+        view.dispatchTouchEvent(ShadowMotionEvent.obtain(0, 100, action, x, y, 0));
     }
 
     private void selectItem(View item) {
