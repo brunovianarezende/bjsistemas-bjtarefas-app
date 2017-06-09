@@ -13,7 +13,10 @@ import android.support.v7.widget.DividerItemDecoration;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.helper.ItemTouchHelper;
+import android.util.Log;
+import android.view.DragEvent;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
@@ -37,6 +40,7 @@ import io.reactivex.Observable;
 import io.reactivex.android.schedulers.AndroidSchedulers;
 import io.reactivex.functions.Consumer;
 import io.reactivex.functions.Function;
+import io.reactivex.functions.Predicate;
 import io.reactivex.schedulers.Schedulers;
 import io.reactivex.subjects.PublishSubject;
 import nom.bruno.tasksapp.R;
@@ -46,6 +50,7 @@ import nom.bruno.tasksapp.models.TaskUpdate;
 import nom.bruno.tasksapp.models.TaskUpdateParameters;
 
 public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> {
+    public static float mDragThreshold = 0f;
     private Activity mActivity;
     private ItemTouchHelper mTouchHelper;
 
@@ -183,6 +188,15 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
 
         View taskView = inflater.inflate(R.layout.item_task, recyclerView, false);
 
+        RxView.drags(taskView)
+                .takeUntil(RxView.detaches(recyclerView))
+                .subscribe(new Consumer<DragEvent>() {
+                    @Override
+                    public void accept(@io.reactivex.annotations.NonNull DragEvent dragEvent) throws Exception {
+                        Log.d("drag", dragEvent.toString());
+                    }
+                });
+
         final ViewHolder viewHolder = new ViewHolder(taskView);
 
         RxView.clicks(viewHolder.mDeleteButton)
@@ -253,9 +267,23 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
                         if (mState.getAdapterState() != States.SELECT_MULTIPLE_TASKS) {
                             switchToMultipleItemsSelectState(viewHolder);
                         } else {
-                            mTouchHelper.startDrag(viewHolder);
-//                            auxHandleClickWhenInMultipleSelectState(viewHolder);
+                            auxHandleClickWhenInMultipleSelectState(viewHolder);
                         }
+                    }
+                });
+
+        RxView.touches(viewHolder.mMoveButton)
+                .takeUntil(RxView.detaches(recyclerView))
+                .filter(new Predicate<MotionEvent>() {
+                    @Override
+                    public boolean test(@io.reactivex.annotations.NonNull MotionEvent motionEvent) throws Exception {
+                        return (motionEvent.getAction() & MotionEvent.ACTION_MASK) == MotionEvent.ACTION_DOWN;
+                    }
+                })
+                .subscribe(new Consumer<MotionEvent>() {
+                    @Override
+                    public void accept(@io.reactivex.annotations.NonNull MotionEvent motionEvent) throws Exception {
+                        mTouchHelper.startDrag(viewHolder);
                     }
                 });
 
@@ -445,6 +473,7 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
         private final TextView mDescriptionTextView;
         private final ImageButton mDeleteButton;
         private final ImageButton mEditButton;
+        private final ImageButton mMoveButton;
         private final ImageButton mEditSaveButton;
         private final ImageButton mEditCancelButton;
         private final EditText mTitleEditText;
@@ -461,13 +490,14 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
             mDescriptionTextView = (TextView) itemView.findViewById(R.id.item_task_description);
             mDeleteButton = (ImageButton) itemView.findViewById(R.id.item_task_delete);
             mEditButton = (ImageButton) itemView.findViewById(R.id.item_task_edit);
+            mMoveButton = (ImageButton) itemView.findViewById(R.id.item_task_move);
             mEditSaveButton = (ImageButton) itemView.findViewById(R.id.item_task_save_edit);
             mEditCancelButton = (ImageButton) itemView.findViewById(R.id.item_task_cancel_edit);
             mTitleEditText = (EditText) itemView.findViewById(R.id.item_task_edit_title);
             mDescriptionEditText = (EditText) itemView.findViewById(R.id.item_task_edit_description);
 
             allItems = Arrays.asList(mProgressBar, mTitleTextView, mDescriptionTextView, mDeleteButton,
-                    mEditButton, mTitleEditText, mDescriptionEditText, mEditSaveButton,
+                    mEditButton, mMoveButton, mTitleEditText, mDescriptionEditText, mEditSaveButton,
                     mEditCancelButton);
         }
 
@@ -525,7 +555,7 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
 
         private void showItemSelectedState() {
             showDefaultBackground();
-            showOnly(mTitleTextView, mDescriptionTextView, mDeleteButton, mEditButton);
+            showOnly(mTitleTextView, mDescriptionTextView, mDeleteButton, mEditButton, mMoveButton);
             setElevation(8);
         }
 
@@ -728,6 +758,14 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
         void clearPendingStateTask() {
             mDataOfTaskBeingEdited = null;
         }
+
+        public void swapTasks(int p1, int p2) {
+            Task t1 = getTask(p1);
+            Task t2 = getTask(p2);
+            Collections.swap(mTasks, p1, p2);
+            mTaskId2Position.put(t1.getId(), p2);
+            mTaskId2Position.put(t2.getId(), p1);
+        }
     }
 
     private static class ItemTouchHelperCallback extends ItemTouchHelper.Callback {
@@ -755,22 +793,38 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
         @Override
         public boolean onMove(RecyclerView recyclerView, RecyclerView.ViewHolder viewHolder, RecyclerView.ViewHolder target) {
             mAdapter.onItemMove(viewHolder.getAdapterPosition(), target.getAdapterPosition());
-            return true;
+            return false;
+        }
+
+        @Override
+        public void clearView(RecyclerView recyclerView, RecyclerView.ViewHolder viewHolder) {
+            super.clearView(recyclerView, viewHolder);
+            Log.d("bla", "test");
         }
 
         @Override
         public void onSwiped(RecyclerView.ViewHolder viewHolder, int direction) {
+        }
+
+        @Override
+        public float getMoveThreshold(RecyclerView.ViewHolder viewHolder) {
+            if(TasksAdapter.mDragThreshold == 0f) {
+                return super.getMoveThreshold(viewHolder);
+            }
+            else {
+                return TasksAdapter.mDragThreshold;
+            }
         }
     }
 
     private void onItemMove(int fromPosition, int toPosition) {
         if (fromPosition < toPosition) {
             for (int i = fromPosition; i < toPosition; i++) {
-                Collections.swap(mState.mTasks, i, i + 1);
+                mState.swapTasks(i, i + 1);
             }
         } else {
             for (int i = fromPosition; i > toPosition; i--) {
-                Collections.swap(mState.mTasks, i, i - 1);
+                mState.swapTasks(i, i - 1);
             }
         }
         notifyItemMoved(fromPosition, toPosition);

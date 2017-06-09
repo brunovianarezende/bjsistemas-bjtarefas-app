@@ -334,17 +334,17 @@ public class MainActivity extends AppCompatActivity {
          instead of trying to be smart and workaround this I'll let mUpdateTasksSubject restart the
          process.
          */
-        Observable.interval(30, TimeUnit.SECONDS)
-                .takeUntil(mUpdateTasksSubject)
-                .subscribe(new Consumer<Long>() {
-                    @Override
-                    public void accept(@io.reactivex.annotations.NonNull Long aLong) throws Exception {
-                        // ATTENTION: if I subscribe mUpdateTasksSubject directly, when the
-                        // intervalObservable completes, the mUpdateTasksSubject will complete too,
-                        // that's why I just call onNext in the subject.
-                        mUpdateTasksSubject.onNext("");
-                    }
-                });
+//        Observable.interval(30, TimeUnit.SECONDS)
+//                .takeUntil(mUpdateTasksSubject)
+//                .subscribe(new Consumer<Long>() {
+//                    @Override
+//                    public void accept(@io.reactivex.annotations.NonNull Long aLong) throws Exception {
+//                        // ATTENTION: if I subscribe mUpdateTasksSubject directly, when the
+//                        // intervalObservable completes, the mUpdateTasksSubject will complete too,
+//                        // that's why I just call onNext in the subject.
+//                        mUpdateTasksSubject.onNext("");
+//                    }
+//                });
     }
 
     private void hideKeyboard() {

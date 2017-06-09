@@ -1,20 +1,24 @@
 package nom.bruno.tasksapp.activities;
 
 import android.annotation.SuppressLint;
+import android.support.v4.view.MotionEventCompat;
 import android.support.v7.widget.RecyclerView;
 import android.view.Menu;
+import android.view.MotionEvent;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.TextView;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.Robolectric;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadow.api.Shadow;
+import org.robolectric.shadows.ShadowMotionEvent;
 
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
@@ -34,6 +38,7 @@ import nom.bruno.tasksapp.models.TaskUpdate;
 import nom.bruno.tasksapp.services.TaskService;
 import nom.bruno.tasksapp.services.TaskServiceStub;
 import nom.bruno.tasksapp.shadows.ShadowToolbarActionBar;
+import nom.bruno.tasksapp.view.adapters.TasksAdapter;
 
 import static junit.framework.Assert.assertEquals;
 import static junit.framework.Assert.assertNotNull;
@@ -44,6 +49,11 @@ import static org.robolectric.Shadows.shadowOf;
 @Config(constants = BuildConfig.class, shadows = {ShadowToolbarActionBar.class})
 public class MainActivityTest {
     private static TestScheduler myScheduler = new TestScheduler();
+
+    @BeforeClass
+    public static void setupClass() {
+        TasksAdapter.mDragThreshold = 0.1f;
+    }
 
     @Before
     public void setup() {
@@ -141,12 +151,7 @@ public class MainActivityTest {
         View editButton = firstItem.findViewById(R.id.item_task_edit);
         editButton.performClick();
         myScheduler.triggerActions();
-        assertEquals(firstItem.findViewById(R.id.item_task_edit).getVisibility(), View.GONE);
-        assertEquals(firstItem.findViewById(R.id.item_task_delete).getVisibility(), View.GONE);
-        assertEquals(firstItem.findViewById(R.id.item_task_title).getVisibility(), View.GONE);
-        assertEquals(firstItem.findViewById(R.id.item_task_description).getVisibility(), View.GONE);
-        assertEquals(firstItem.findViewById(R.id.item_task_edit_title).getVisibility(), View.VISIBLE);
-        assertEquals(firstItem.findViewById(R.id.item_task_edit_description).getVisibility(), View.VISIBLE);
+        assertEditStateItems(firstItem);
 
         // change title and description
         ((EditText) firstItem.findViewById(R.id.item_task_edit_title)).setText("New title");
@@ -219,12 +224,7 @@ public class MainActivityTest {
         View editButton = item.findViewById(R.id.item_task_edit);
         editButton.performClick();
         myScheduler.triggerActions();
-        assertEquals(item.findViewById(R.id.item_task_edit).getVisibility(), View.GONE);
-        assertEquals(item.findViewById(R.id.item_task_delete).getVisibility(), View.GONE);
-        assertEquals(item.findViewById(R.id.item_task_title).getVisibility(), View.GONE);
-        assertEquals(item.findViewById(R.id.item_task_description).getVisibility(), View.GONE);
-        assertEquals(item.findViewById(R.id.item_task_edit_title).getVisibility(), View.VISIBLE);
-        assertEquals(item.findViewById(R.id.item_task_edit_description).getVisibility(), View.VISIBLE);
+        assertEditStateItems(item);
 
         // change title and description
         ((EditText) item.findViewById(R.id.item_task_edit_title)).setText("New title");
@@ -270,22 +270,12 @@ public class MainActivityTest {
         View editButton = firstItem.findViewById(R.id.item_task_edit);
         editButton.performClick();
         myScheduler.triggerActions();
-        assertEquals(firstItem.findViewById(R.id.item_task_edit).getVisibility(), View.GONE);
-        assertEquals(firstItem.findViewById(R.id.item_task_delete).getVisibility(), View.GONE);
-        assertEquals(firstItem.findViewById(R.id.item_task_title).getVisibility(), View.GONE);
-        assertEquals(firstItem.findViewById(R.id.item_task_description).getVisibility(), View.GONE);
-        assertEquals(firstItem.findViewById(R.id.item_task_edit_title).getVisibility(), View.VISIBLE);
-        assertEquals(firstItem.findViewById(R.id.item_task_edit_description).getVisibility(), View.VISIBLE);
+        assertEditStateItems(firstItem);
 
         // cancel edition
         firstItem.findViewById(R.id.item_task_cancel_edit).performClick();
         myScheduler.triggerActions();
-        assertEquals(firstItem.findViewById(R.id.item_task_edit).getVisibility(), View.VISIBLE);
-        assertEquals(firstItem.findViewById(R.id.item_task_delete).getVisibility(), View.VISIBLE);
-        assertEquals(firstItem.findViewById(R.id.item_task_title).getVisibility(), View.VISIBLE);
-        assertEquals(firstItem.findViewById(R.id.item_task_description).getVisibility(), View.VISIBLE);
-        assertEquals(firstItem.findViewById(R.id.item_task_edit_title).getVisibility(), View.GONE);
-        assertEquals(firstItem.findViewById(R.id.item_task_edit_description).getVisibility(), View.GONE);
+        assertItemSelectedStateItems(firstItem);
 
         // force a screen update (it could have happened because 30 seconds have passed)
         activity.forceTasksUpdate();
@@ -293,12 +283,7 @@ public class MainActivityTest {
         myScheduler.triggerActions();
 
         // the state of the item must not have changed
-        assertEquals(firstItem.findViewById(R.id.item_task_edit).getVisibility(), View.VISIBLE);
-        assertEquals(firstItem.findViewById(R.id.item_task_delete).getVisibility(), View.VISIBLE);
-        assertEquals(firstItem.findViewById(R.id.item_task_title).getVisibility(), View.VISIBLE);
-        assertEquals(firstItem.findViewById(R.id.item_task_description).getVisibility(), View.VISIBLE);
-        assertEquals(firstItem.findViewById(R.id.item_task_edit_title).getVisibility(), View.GONE);
-        assertEquals(firstItem.findViewById(R.id.item_task_edit_description).getVisibility(), View.GONE);
+        assertItemSelectedStateItems(firstItem);
     }
 
     @SuppressLint("SetTextI18n")
@@ -350,14 +335,117 @@ public class MainActivityTest {
         // although if I cancel the edition, the new content must be there
         firstItem.findViewById(R.id.item_task_cancel_edit).performClick();
         myScheduler.triggerActions();
-        assertEquals(((TextView)firstItem.findViewById(R.id.item_task_title)).getText(), "my title");
-        assertEquals(((TextView)firstItem.findViewById(R.id.item_task_description)).getText(), "my description");
+        assertEquals(((TextView) firstItem.findViewById(R.id.item_task_title)).getText(), "my title");
+        assertEquals(((TextView) firstItem.findViewById(R.id.item_task_description)).getText(), "my description");
 
         // and if I edit it again, the new content must be there too
         firstItem.findViewById(R.id.item_task_edit).performClick();
         myScheduler.triggerActions();
         assertEquals(((EditText) firstItem.findViewById(R.id.item_task_edit_title)).getText().toString(), "my title");
         assertEquals(((EditText) firstItem.findViewById(R.id.item_task_edit_description)).getText().toString(), "my description");
+    }
+
+    @Test
+    public void testDragAndDropItemSelectedState() {
+        TaskService ts = Singletons.getTaskService(null);
+        TaskCreation tc = new TaskCreation();
+        int numItems = 5;
+        for (int i = 0; i < numItems; i++) {
+            tc.setTitle("t" + i);
+            tc.setDescription("d" + i);
+            ts.addTask(tc).blockingFirst();
+        }
+
+        // setup activity
+        MainActivity activity = Robolectric.buildActivity(MainActivity.class).create().start().resume().visible().get();
+        myScheduler.triggerActions();
+
+        // get item
+        View selectedItem = getItem(activity, numItems - 1);
+
+        // check if icon appear in item selected state
+        selectItem(selectedItem);
+        assertItemSelectedStateItems(selectedItem);
+
+        View targetItem = getItem(activity, numItems - 3);
+
+        // check if I can move item
+        moveItemBefore(activity, targetItem, selectedItem);
+
+        // check final order of items
+        int[] expected = new int[]{0, 1, 4, 2, 3};
+        for (int i = 0; i < numItems; i++) {
+            View item = getItem(activity, i);
+            assertTitle(item, "t" + expected[i]);
+            assertDescription(item, "d" + expected[i]);
+        }
+        // check if the API call was correct
+    }
+
+    private void assertTitle(View item, String title) {
+        assertEquals(((TextView) item.findViewById(R.id.item_task_title)).getText(), title);
+    }
+
+    private void assertDescription(View item, String description) {
+        assertEquals(((TextView) item.findViewById(R.id.item_task_description)).getText(), description);
+    }
+
+    private void moveItemBefore(MainActivity activity, View targetItem, View selectedItem) {
+        int targetPosition = ((RecyclerView) targetItem.getParent()).getChildLayoutPosition(targetItem);
+        int selectedItemPosition = ((RecyclerView) selectedItem.getParent()).getChildLayoutPosition(selectedItem);
+
+        View moveButton = selectedItem.findViewById(R.id.item_task_move);
+
+        int[] moveButtonCoordinates = new int[2];
+        moveButton.getLocationInWindow(moveButtonCoordinates);
+        int left = moveButtonCoordinates[0];
+        int top = moveButtonCoordinates[1];
+        int centerX = (int) (left + moveButton.getWidth() / 2);
+        int centerY = (int) (top + moveButton.getHeight() / 2);
+
+        dispatchTouchEvent(moveButton, MotionEvent.ACTION_DOWN, centerX, centerY);
+
+        RecyclerView rvTasks = (RecyclerView) activity.findViewById(R.id.tasks_recycler_view);
+        dispatchTouchEvent(rvTasks, MotionEvent.ACTION_DOWN, centerX, selectedItem.getTop());
+        assertNotNull(rvTasks);
+
+        rvTasks.onTouchEvent(ShadowMotionEvent.obtain(0, 100, MotionEvent.ACTION_MOVE, centerX, selectedItem.getTop(), 0));
+        for (int currentPosition = selectedItemPosition - 1; currentPosition >= targetPosition; currentPosition--) {
+            View currentItem = rvTasks.getChildAt(currentPosition);
+            int target = currentItem.getTop() - 1;
+            rvTasks.onTouchEvent(ShadowMotionEvent.obtain(0, 100, MotionEvent.ACTION_MOVE, centerX, target, 0));
+        }
+    }
+
+    private void dispatchTouchEvent(View view, int action, int x, int y) {
+        view.dispatchTouchEvent(MotionEvent.obtain(0, 100, action, x, y, 0));
+    }
+
+    private void selectItem(View item) {
+        item.performClick();
+        myScheduler.triggerActions();
+    }
+
+    private View getItem(MainActivity activity, int itemPosition) {
+        RecyclerView rvTasks = (RecyclerView) activity.findViewById(R.id.tasks_recycler_view);
+        assertNotNull(rvTasks);
+        View item = rvTasks.getChildAt(itemPosition);
+        assertNotNull(item);
+        return item;
+    }
+
+    @Test
+    public void testDragAndDropSharedState() {
+        // check if icon appear for all items in share state
+        // check touch event
+        // check if I can move item
+        // check final order of items
+        // check if the API call was correct
+    }
+
+    @Test
+    public void testReorderIsRobustAgainstServerFailures() {
+        // check what happens if there is a server failure after API call to do reorder
     }
 
     private void assertShareIcons(MainActivity activity, boolean visible) {
@@ -378,6 +466,26 @@ public class MainActivityTest {
         } else {
             assertTrue(menu.findItem(iconId) == null || !menu.findItem(iconId).isVisible());
         }
+    }
+
+    private void assertEditStateItems(View item) {
+        assertEquals(item.findViewById(R.id.item_task_edit).getVisibility(), View.GONE);
+        assertEquals(item.findViewById(R.id.item_task_delete).getVisibility(), View.GONE);
+        assertEquals(item.findViewById(R.id.item_task_move).getVisibility(), View.GONE);
+        assertEquals(item.findViewById(R.id.item_task_title).getVisibility(), View.GONE);
+        assertEquals(item.findViewById(R.id.item_task_description).getVisibility(), View.GONE);
+        assertEquals(item.findViewById(R.id.item_task_edit_title).getVisibility(), View.VISIBLE);
+        assertEquals(item.findViewById(R.id.item_task_edit_description).getVisibility(), View.VISIBLE);
+    }
+
+    private void assertItemSelectedStateItems(View item) {
+        assertEquals(item.findViewById(R.id.item_task_edit).getVisibility(), View.VISIBLE);
+        assertEquals(item.findViewById(R.id.item_task_delete).getVisibility(), View.VISIBLE);
+        assertEquals(item.findViewById(R.id.item_task_move).getVisibility(), View.VISIBLE);
+        assertEquals(item.findViewById(R.id.item_task_title).getVisibility(), View.VISIBLE);
+        assertEquals(item.findViewById(R.id.item_task_description).getVisibility(), View.VISIBLE);
+        assertEquals(item.findViewById(R.id.item_task_edit_title).getVisibility(), View.GONE);
+        assertEquals(item.findViewById(R.id.item_task_edit_description).getVisibility(), View.GONE);
     }
 }
 
