@@ -116,8 +116,7 @@ public class MainActivityTest {
         View firstItem = rvTasks.getChildAt(0);
         assertNotNull(firstItem);
         // perform long click, this should change the app's state
-        firstItem.performLongClick();
-        myScheduler.triggerActions();
+        startSelectMultipleItemsState(firstItem);
         // check the icons
         Menu menu = shadowOf(activity).getOptionsMenu();
         assertTrue(menu.hasVisibleItems());
@@ -367,9 +366,9 @@ public class MainActivityTest {
         selectItem(selectedItem);
         assertItemSelectedStateItems(selectedItem);
 
-        View targetItem = getItem(activity, numItems - 3);
 
-        // check if I can move item
+        // move last item to third position
+        View targetItem = getItem(activity, 2);
         View moveButton = selectedItem.findViewById(R.id.item_task_move);
         dragItemBeforeTarget(moveButton, targetItem, selectedItem);
 
@@ -380,7 +379,13 @@ public class MainActivityTest {
             assertTitle(item, "t" + expected[i]);
             assertDescription(item, "d" + expected[i]);
         }
+
         // check if the API call was correct
+    }
+
+    @Test
+    public void testReorderIsRobustAgainstServerFailures() {
+        // check what happens if there is a server failure after API call to do reorder
     }
 
     private void assertTitle(View item, String title) {
@@ -411,6 +416,26 @@ public class MainActivityTest {
         }
     }
 
+    private void dragItemAfterTarget(View touchItemToTriggerDragAnDrop, View targetItem, View selectedItem) {
+        int centerX = triggerDragAndDrop(touchItemToTriggerDragAnDrop);
+
+        RecyclerView rvTasks = (RecyclerView) selectedItem.getParent();
+
+        // the recycler view must also react to the initial touch action
+        dispatchTouchEvent(rvTasks, MotionEvent.ACTION_DOWN, centerX, selectedItem.getTop());
+        // this initial ACTION_MOVE call is needed to initialise some internal states
+        dispatchTouchEvent(rvTasks, MotionEvent.ACTION_MOVE, centerX, selectedItem.getTop());
+
+        // now we move the item down to the target, one item by one
+        int targetPosition = rvTasks.getChildLayoutPosition(targetItem);
+        int selectedItemPosition = rvTasks.getChildLayoutPosition(selectedItem);
+        for (int currentPosition = selectedItemPosition + 1; currentPosition <= targetPosition; currentPosition++) {
+            View currentItem = rvTasks.getChildAt(currentPosition);
+            int target = currentItem.getTop() + 1;
+            dispatchTouchEvent(rvTasks, MotionEvent.ACTION_MOVE, centerX, target);
+        }
+    }
+
     private int triggerDragAndDrop(View touchItemToTriggerDragAnDrop) {
         // start the drag and drop action. The action that will trigger it must be a touch
         int[] triggerCoordinates = new int[2];
@@ -428,10 +453,16 @@ public class MainActivityTest {
 
     private void dispatchTouchEvent(View view, int action, int x, int y) {
         view.dispatchTouchEvent(ShadowMotionEvent.obtain(0, 100, action, x, y, 0));
+        myScheduler.triggerActions();
     }
 
     private void selectItem(View item) {
         item.performClick();
+        myScheduler.triggerActions();
+    }
+
+    private void startSelectMultipleItemsState(View item) {
+        item.performLongClick();
         myScheduler.triggerActions();
     }
 
@@ -441,20 +472,6 @@ public class MainActivityTest {
         View item = rvTasks.getChildAt(itemPosition);
         assertNotNull(item);
         return item;
-    }
-
-    @Test
-    public void testDragAndDropSharedState() {
-        // check if icon appear for all items in share state
-        // check touch event
-        // check if I can move item
-        // check final order of items
-        // check if the API call was correct
-    }
-
-    @Test
-    public void testReorderIsRobustAgainstServerFailures() {
-        // check what happens if there is a server failure after API call to do reorder
     }
 
     private void assertShareIcons(MainActivity activity, boolean visible) {
@@ -491,6 +508,16 @@ public class MainActivityTest {
         assertEquals(item.findViewById(R.id.item_task_edit).getVisibility(), View.VISIBLE);
         assertEquals(item.findViewById(R.id.item_task_delete).getVisibility(), View.VISIBLE);
         assertEquals(item.findViewById(R.id.item_task_move).getVisibility(), View.VISIBLE);
+        assertEquals(item.findViewById(R.id.item_task_title).getVisibility(), View.VISIBLE);
+        assertEquals(item.findViewById(R.id.item_task_description).getVisibility(), View.VISIBLE);
+        assertEquals(item.findViewById(R.id.item_task_edit_title).getVisibility(), View.GONE);
+        assertEquals(item.findViewById(R.id.item_task_edit_description).getVisibility(), View.GONE);
+    }
+
+    private void assertSelectMultipleItemsStateItems(View item) {
+        assertEquals(item.findViewById(R.id.item_task_edit).getVisibility(), View.GONE);
+        assertEquals(item.findViewById(R.id.item_task_delete).getVisibility(), View.GONE);
+        assertEquals(item.findViewById(R.id.item_task_move).getVisibility(), View.GONE);
         assertEquals(item.findViewById(R.id.item_task_title).getVisibility(), View.VISIBLE);
         assertEquals(item.findViewById(R.id.item_task_description).getVisibility(), View.VISIBLE);
         assertEquals(item.findViewById(R.id.item_task_edit_title).getVisibility(), View.GONE);
