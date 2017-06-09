@@ -15,13 +15,6 @@ public class TaskServiceStub implements TaskService {
     private List<Task> mTasks = new ArrayList<>();
     private int mCurrentId = 1;
 
-    private void sleep() {
-        try {
-            Thread.sleep(10);
-        } catch (InterruptedException e) {
-        }
-    }
-
     private List<Task> cloneTasks(List<Task> tasks) {
         List<Task> result = new ArrayList<>();
         for (Task task : tasks) {
@@ -36,13 +29,11 @@ public class TaskServiceStub implements TaskService {
 
     @Override
     public Observable<List<Task>> getTasks() {
-        sleep();
         return Observable.just(cloneTasks(mTasks));
     }
 
     @Override
     public Observable<MyVoid> deleteTask(int id) {
-        sleep();
         List<Task> newTasks = new ArrayList<>();
         for (Task task : mTasks) {
             if (task.getId() != id) {
@@ -56,7 +47,6 @@ public class TaskServiceStub implements TaskService {
 
     @Override
     public Observable<MyVoid> updateTask(int id, TaskUpdate taskUpdate) {
-        sleep();
         for (Task task : mTasks) {
             if (task.getId() == id) {
                 task.setTitle(taskUpdate.getTitle());
@@ -69,7 +59,6 @@ public class TaskServiceStub implements TaskService {
     @Override
     public Observable<Integer> addTask(TaskCreation taskCreation) {
         Task task = new Task();
-        sleep();
         task.setId(mCurrentId);
         mCurrentId += 1;
         task.setTitle(taskCreation.getTitle());
@@ -80,7 +69,6 @@ public class TaskServiceStub implements TaskService {
 
     @Override
     public Observable<TasksDelta> getTasksDelta() {
-        sleep();
         return Observable.just(new TasksDelta());
     }
 
