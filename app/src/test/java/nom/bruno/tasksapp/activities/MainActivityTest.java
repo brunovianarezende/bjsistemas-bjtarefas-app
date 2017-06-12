@@ -19,6 +19,7 @@ import org.robolectric.annotation.Config;
 import org.robolectric.shadow.api.Shadow;
 import org.robolectric.shadows.ShadowMotionEvent;
 
+import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
@@ -32,6 +33,7 @@ import io.reactivex.schedulers.TestScheduler;
 import nom.bruno.tasksapp.BuildConfig;
 import nom.bruno.tasksapp.R;
 import nom.bruno.tasksapp.Singletons;
+import nom.bruno.tasksapp.models.Task;
 import nom.bruno.tasksapp.models.TaskCreation;
 import nom.bruno.tasksapp.models.TaskUpdate;
 import nom.bruno.tasksapp.services.TaskService;
@@ -371,6 +373,7 @@ public class MainActivityTest {
         View targetItem = getItem(activity, 2);
         View moveButton = selectedItem.findViewById(R.id.item_task_move);
         dragItemBeforeTarget(moveButton, targetItem, selectedItem);
+        selectItem(getItem(activity, 2));
 
         // check final order of items
         int[] expected = new int[]{0, 1, 4, 2, 3};
@@ -381,6 +384,12 @@ public class MainActivityTest {
         }
 
         // check if the API call was correct
+        TaskServiceStub tsStub = (TaskServiceStub) ts;
+        List<Task> tasks = tsStub.getInternalTasks();
+        for (int i = 0; i < numItems; i++) {
+            Task task = tasks.get(i);
+            assertEquals(task.getTitle(), "t" + expected[i]);
+        }
     }
 
     @Test
@@ -409,32 +418,37 @@ public class MainActivityTest {
         // now we move the item up to the target, one item by one
         int targetPosition = rvTasks.getChildLayoutPosition(targetItem);
         int selectedItemPosition = rvTasks.getChildLayoutPosition(selectedItem);
+        int lastTarget = -1;
         for (int currentPosition = selectedItemPosition - 1; currentPosition >= targetPosition; currentPosition--) {
             View currentItem = rvTasks.getChildAt(currentPosition);
             int target = currentItem.getTop() - 1;
+            lastTarget = target;
             dispatchTouchEvent(rvTasks, MotionEvent.ACTION_MOVE, centerX, target);
         }
+
+        // and then we stop the drag and drop process
+        dispatchTouchEvent(rvTasks, MotionEvent.ACTION_UP, centerX, lastTarget);
     }
 
-    private void dragItemAfterTarget(View touchItemToTriggerDragAnDrop, View targetItem, View selectedItem) {
-        int centerX = triggerDragAndDrop(touchItemToTriggerDragAnDrop);
-
-        RecyclerView rvTasks = (RecyclerView) selectedItem.getParent();
-
-        // the recycler view must also react to the initial touch action
-        dispatchTouchEvent(rvTasks, MotionEvent.ACTION_DOWN, centerX, selectedItem.getTop());
-        // this initial ACTION_MOVE call is needed to initialise some internal states
-        dispatchTouchEvent(rvTasks, MotionEvent.ACTION_MOVE, centerX, selectedItem.getTop());
-
-        // now we move the item down to the target, one item by one
-        int targetPosition = rvTasks.getChildLayoutPosition(targetItem);
-        int selectedItemPosition = rvTasks.getChildLayoutPosition(selectedItem);
-        for (int currentPosition = selectedItemPosition + 1; currentPosition <= targetPosition; currentPosition++) {
-            View currentItem = rvTasks.getChildAt(currentPosition);
-            int target = currentItem.getTop() + 1;
-            dispatchTouchEvent(rvTasks, MotionEvent.ACTION_MOVE, centerX, target);
-        }
-    }
+//    private void dragItemAfterTarget(View touchItemToTriggerDragAnDrop, View targetItem, View selectedItem) {
+//        int centerX = triggerDragAndDrop(touchItemToTriggerDragAnDrop);
+//
+//        RecyclerView rvTasks = (RecyclerView) selectedItem.getParent();
+//
+//        // the recycler view must also react to the initial touch action
+//        dispatchTouchEvent(rvTasks, MotionEvent.ACTION_DOWN, centerX, selectedItem.getTop());
+//        // this initial ACTION_MOVE call is needed to initialise some internal states
+//        dispatchTouchEvent(rvTasks, MotionEvent.ACTION_MOVE, centerX, selectedItem.getTop());
+//
+//        // now we move the item down to the target, one item by one
+//        int targetPosition = rvTasks.getChildLayoutPosition(targetItem);
+//        int selectedItemPosition = rvTasks.getChildLayoutPosition(selectedItem);
+//        for (int currentPosition = selectedItemPosition + 1; currentPosition <= targetPosition; currentPosition++) {
+//            View currentItem = rvTasks.getChildAt(currentPosition);
+//            int target = currentItem.getTop() + 1;
+//            dispatchTouchEvent(rvTasks, MotionEvent.ACTION_MOVE, centerX, target);
+//        }
+//    }
 
     private int triggerDragAndDrop(View touchItemToTriggerDragAnDrop) {
         // start the drag and drop action. The action that will trigger it must be a touch
@@ -453,6 +467,7 @@ public class MainActivityTest {
 
     private void dispatchTouchEvent(View view, int action, int x, int y) {
         view.dispatchTouchEvent(ShadowMotionEvent.obtain(0, 100, action, x, y, 0));
+        myScheduler.advanceTimeBy(100, TimeUnit.MILLISECONDS);
         myScheduler.triggerActions();
     }
 
@@ -508,16 +523,6 @@ public class MainActivityTest {
         assertEquals(item.findViewById(R.id.item_task_edit).getVisibility(), View.VISIBLE);
         assertEquals(item.findViewById(R.id.item_task_delete).getVisibility(), View.VISIBLE);
         assertEquals(item.findViewById(R.id.item_task_move).getVisibility(), View.VISIBLE);
-        assertEquals(item.findViewById(R.id.item_task_title).getVisibility(), View.VISIBLE);
-        assertEquals(item.findViewById(R.id.item_task_description).getVisibility(), View.VISIBLE);
-        assertEquals(item.findViewById(R.id.item_task_edit_title).getVisibility(), View.GONE);
-        assertEquals(item.findViewById(R.id.item_task_edit_description).getVisibility(), View.GONE);
-    }
-
-    private void assertSelectMultipleItemsStateItems(View item) {
-        assertEquals(item.findViewById(R.id.item_task_edit).getVisibility(), View.GONE);
-        assertEquals(item.findViewById(R.id.item_task_delete).getVisibility(), View.GONE);
-        assertEquals(item.findViewById(R.id.item_task_move).getVisibility(), View.GONE);
         assertEquals(item.findViewById(R.id.item_task_title).getVisibility(), View.VISIBLE);
         assertEquals(item.findViewById(R.id.item_task_description).getVisibility(), View.VISIBLE);
         assertEquals(item.findViewById(R.id.item_task_edit_title).getVisibility(), View.GONE);

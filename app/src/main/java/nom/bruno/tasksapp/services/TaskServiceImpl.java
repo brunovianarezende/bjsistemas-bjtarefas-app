@@ -100,6 +100,12 @@ public class TaskServiceImpl implements TaskService {
         });
     }
 
+    @Override
+    public Observable<MyVoid> moveTask(int id, int position) {
+        // TODO
+        return null;
+    }
+
     public Observable<Integer> addTask(final TaskCreation taskCreation) {
         return executor.call(new Function<TaskApi, Observable<Result<Integer>>>() {
             @Override

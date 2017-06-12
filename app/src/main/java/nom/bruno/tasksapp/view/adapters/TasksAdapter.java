@@ -51,7 +51,36 @@ import nom.bruno.tasksapp.models.TaskUpdateParameters;
 
 public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> {
     private Activity mActivity;
+
     private ItemTouchHelper mTouchHelper;
+
+    private AdapterState mState = new AdapterState();
+
+    private PublishSubject<Task> deleteSubject = PublishSubject.create();
+
+    private PublishSubject<TaskUpdateParameters> saveSubject = PublishSubject.create();
+
+    private PublishSubject<StateDelta> mStateChangeSubject = PublishSubject.create();
+
+    private PublishSubject<NewTaskPosition> mDropFinished = PublishSubject.create();
+
+    private RecyclerView mRecyclerView;
+
+    public Observable<Task> onDeleteSingle() {
+        return deleteSubject;
+    }
+
+    public Observable<TaskUpdateParameters> onUpdate() {
+        return saveSubject;
+    }
+
+    public Observable<StateDelta> onStateChange() {
+        return mStateChangeSubject;
+    }
+
+    public Observable<NewTaskPosition> onDropFinished() {
+        return mDropFinished;
+    }
 
     public static TasksAdapter initializeTasksAdapter(Activity activity) {
         RecyclerView rvTasks = (RecyclerView) activity.findViewById(R.id.tasks_recycler_view);
@@ -71,28 +100,6 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
         // enable optimization to rebind the same view to the same view holder every time. It's
         // recommended to override getItemId and return a real stable id.
         setHasStableIds(true);
-    }
-
-    private AdapterState mState = new AdapterState();
-
-    private PublishSubject<Task> deleteSubject = PublishSubject.create();
-
-    private PublishSubject<TaskUpdateParameters> saveSubject = PublishSubject.create();
-
-    private PublishSubject<StateDelta> mStateChangeSubject = PublishSubject.create();
-
-    private RecyclerView mRecyclerView;
-
-    public Observable<Task> onDeleteSingle() {
-        return deleteSubject;
-    }
-
-    public Observable<TaskUpdateParameters> onUpdate() {
-        return saveSubject;
-    }
-
-    public Observable<StateDelta> onStateChange() {
-        return mStateChangeSubject;
     }
 
     private ViewHolder getCurrentlySelected() {
@@ -283,6 +290,7 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
                     @Override
                     public void accept(@io.reactivex.annotations.NonNull MotionEvent motionEvent) throws Exception {
                         mTouchHelper.startDrag(viewHolder);
+                        mState.setDraggedTask(getRelatedTask(viewHolder));
                     }
                 });
 
@@ -465,6 +473,28 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
         mStateChangeSubject.onNext(delta);
     }
 
+    private void onDragAndDropFinished() {
+        Task task = mState.getDraggedTask();
+        if (task != null) {
+            int newPosition = mState.getTaskPosition(task);
+            mState.setDraggedTask(null);
+            mDropFinished.onNext(new NewTaskPosition(task, newPosition));
+        }
+    }
+
+    private void onItemMove(int fromPosition, int toPosition) {
+        if (fromPosition < toPosition) {
+            for (int i = fromPosition; i < toPosition; i++) {
+                mState.swapTasks(i, i + 1);
+            }
+        } else {
+            for (int i = fromPosition; i > toPosition; i--) {
+                mState.swapTasks(i, i - 1);
+            }
+        }
+        notifyItemMoved(fromPosition, toPosition);
+    }
+
     static class ViewHolder extends RecyclerView.ViewHolder {
         private final ConstraintLayout mLayout;
         private final ProgressBar mProgressBar;
@@ -645,6 +675,24 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
         }
     }
 
+    public static class NewTaskPosition {
+        final private Task task;
+        final private int newPosition;
+
+        private NewTaskPosition(Task task, int newPosition) {
+            this.task = task;
+            this.newPosition = newPosition;
+        }
+
+        public Task getTask() {
+            return task;
+        }
+
+        public int getNewPosition() {
+            return newPosition;
+        }
+    }
+
     private static class AdapterState {
         private List<Task> mTasks = Collections.emptyList();
         private int mSelectedTaskId = -1;
@@ -654,6 +702,7 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
         @SuppressLint("UseSparseArrays")
         private Map<Integer, Integer> mTaskId2Position = new HashMap<>();
         private Task mDataOfTaskBeingEdited;
+        private Task mDraggedTask;
 
         boolean hasTaskSelected() {
             return mSelectedTaskId != -1;
@@ -758,12 +807,20 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
             mDataOfTaskBeingEdited = null;
         }
 
-        public void swapTasks(int p1, int p2) {
+        void swapTasks(int p1, int p2) {
             Task t1 = getTask(p1);
             Task t2 = getTask(p2);
             Collections.swap(mTasks, p1, p2);
             mTaskId2Position.put(t1.getId(), p2);
             mTaskId2Position.put(t2.getId(), p1);
+        }
+
+        void setDraggedTask(Task task) {
+            mDraggedTask = task;
+        }
+
+        Task getDraggedTask() {
+            return mDraggedTask;
         }
     }
 
@@ -796,26 +853,21 @@ public class TasksAdapter extends RecyclerView.Adapter<TasksAdapter.ViewHolder> 
         }
 
         @Override
+        public void onSelectedChanged(RecyclerView.ViewHolder viewHolder, int actionState) {
+            super.onSelectedChanged(viewHolder, actionState);
+            if (viewHolder == null && actionState == ItemTouchHelper.ACTION_STATE_IDLE) {
+                mAdapter.onDragAndDropFinished();
+
+            }
+        }
+
+        @Override
         public void clearView(RecyclerView recyclerView, RecyclerView.ViewHolder viewHolder) {
             super.clearView(recyclerView, viewHolder);
-            Log.d("bla", "test");
         }
 
         @Override
         public void onSwiped(RecyclerView.ViewHolder viewHolder, int direction) {
         }
-    }
-
-    private void onItemMove(int fromPosition, int toPosition) {
-        if (fromPosition < toPosition) {
-            for (int i = fromPosition; i < toPosition; i++) {
-                mState.swapTasks(i, i + 1);
-            }
-        } else {
-            for (int i = fromPosition; i > toPosition; i--) {
-                mState.swapTasks(i, i - 1);
-            }
-        }
-        notifyItemMoved(fromPosition, toPosition);
     }
 }

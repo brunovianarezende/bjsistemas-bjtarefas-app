@@ -57,6 +57,28 @@ public class TaskServiceStub implements TaskService {
     }
 
     @Override
+    public Observable<MyVoid> moveTask(int id, int toPosition) {
+        int fromPosition = -1;
+        for (int i = 0; i < mTasks.size(); i++) {
+            Task task = mTasks.get(i);
+            if (task.getId() == id) {
+                fromPosition = i;
+                break;
+            }
+        }
+        if (fromPosition < toPosition) {
+            for (int i = fromPosition; i < toPosition; i++) {
+                Collections.swap(mTasks, i, i + 1);
+            }
+        } else {
+            for (int i = fromPosition; i > toPosition; i--) {
+                Collections.swap(mTasks, i, i - 1);
+            }
+        }
+        return Observable.just(MyVoid.INSTANCE);
+    }
+
+    @Override
     public Observable<Integer> addTask(TaskCreation taskCreation) {
         Task task = new Task();
         task.setId(mCurrentId);
@@ -75,5 +97,9 @@ public class TaskServiceStub implements TaskService {
     @Override
     public List<Task> getPersistedTasks() {
         return Collections.emptyList();
+    }
+
+    public List<Task> getInternalTasks() {
+        return mTasks;
     }
 }
