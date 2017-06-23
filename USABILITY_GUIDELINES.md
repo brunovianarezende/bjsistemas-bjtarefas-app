@@ -10,5 +10,6 @@ Colors
 
 * Icon bar icons - it must use the same color as the text, i.e. the value in `colorToolbarTitle`.
 Right now this value is `#FAFAFA`.
+* Other icons should use the HOLO_LIGHT theme (Grey palette, 700: #616161)
 * I'm trying to use the Indigo pallete (500=`#3F51B5`) as much as possible:
 https://material.io/guidelines/style/color.html#color-color-palette
