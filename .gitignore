@@ -7,3 +7,4 @@ keystore.properties
 /build
 /captures
 .externalNativeBuild
+constants.*.properties
