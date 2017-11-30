@@ -15,7 +15,7 @@ public class LogWrapper {
     }
 
     private static HowToLog getLogger() {
-        if (Constants.SENTRY_DSN == null) {
+        if (BuildConfig.SENTRY_DSN == null) {
             return new LogToLog();
         } else {
             return new LogToSentry();
@@ -31,7 +31,7 @@ public class LogWrapper {
     private static class LogToSentry implements HowToLog {
         @Override
         public void init(Context context) {
-            Raven.init(context, Constants.SENTRY_DSN);
+            Raven.init(context, BuildConfig.SENTRY_DSN);
         }
 
         @Override

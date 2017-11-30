@@ -2,7 +2,7 @@ package nom.bruno.tasksapp.services;
 
 import android.support.annotation.NonNull;
 
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -15,7 +15,7 @@ import io.reactivex.Observable;
 import io.reactivex.ObservableSource;
 import io.reactivex.functions.Function;
 import io.reactivex.schedulers.Schedulers;
-import nom.bruno.tasksapp.Constants;
+import nom.bruno.tasksapp.BuildConfig;
 import nom.bruno.tasksapp.models.MyVoid;
 import nom.bruno.tasksapp.models.Result;
 import nom.bruno.tasksapp.models.Task;
@@ -175,9 +175,22 @@ public class TaskServiceImpl implements TaskService {
     }
 
     private static class TaskApiExecutor {
-        private TaskApiWrapper mInternalApi = createTaskApi(Constants.INTERNAL_SERVICE_URL);
-        private TaskApiWrapper mExternalApi = createTaskApi(Constants.EXTERNAL_SERVICE_URL);
-        private List<TaskApiWrapper> mCandidates = Arrays.asList(mExternalApi, mInternalApi);
+        private List<TaskApiWrapper> mCandidates = new ArrayList<>();
+
+        public TaskApiExecutor() {
+            mCandidates = getCandidates();
+        }
+
+        private List<TaskApiWrapper> getCandidates() {
+            List<TaskApiWrapper> candidates = new ArrayList<>();
+            if(BuildConfig.INTERNAL_SERVICE_URL != null) {
+                candidates.add(createTaskApi(BuildConfig.INTERNAL_SERVICE_URL));
+            }
+            if(BuildConfig.EXTERNAL_SERVICE_URL != null) {
+                candidates.add(createTaskApi(BuildConfig.EXTERNAL_SERVICE_URL));
+            }
+            return candidates;
+        }
 
         private TaskApiWrapper createTaskApi(String url) {
             Retrofit retrofit = new Retrofit.Builder()
@@ -197,7 +210,7 @@ public class TaskServiceImpl implements TaskService {
                             return callable.apply(taskApiWrapper.taskApi).onErrorResumeNext(new Function<Throwable, ObservableSource<? extends T>>() {
                                 @Override
                                 public ObservableSource<? extends T> apply(@io.reactivex.annotations.NonNull Throwable throwable) throws Exception {
-                                    List<TaskApiWrapper> candidates = Arrays.asList(mExternalApi, mInternalApi);
+                                    List<TaskApiWrapper> candidates = getCandidates();
                                     Collections.sort(candidates, new Comparator<TaskApiWrapper>() {
                                         @Override
                                         public int compare(TaskApiWrapper o1, TaskApiWrapper o2) {

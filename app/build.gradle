@@ -1,5 +1,27 @@
 apply plugin: 'com.android.application'
 
+def dq(s) {
+    if (s != null) {
+        return "\"${s}\"".toString()
+    }
+    else {
+        return "null"
+    }
+}
+
+def stringProperty(variant, props, key) {
+    variant.buildConfigField("String", key, dq(props[key]))
+}
+
+def propertiesFile(variantName) {
+    Properties props = new Properties()
+    File f = new File("constants.${variantName.toLowerCase()}.properties")
+    if (f.exists()) {
+        props.load(new FileInputStream(f))
+    }
+    return props
+}
+
 android {
     compileSdkVersion 25
     buildToolsVersion '26.0.2'
@@ -23,6 +45,12 @@ android {
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+        applicationVariants.all {variant ->
+            def props = propertiesFile(variant.name)
+            stringProperty(variant, props, "INTERNAL_SERVICE_URL")
+            stringProperty(variant, props, "EXTERNAL_SERVICE_URL")
+            stringProperty(variant, props, "SENTRY_DSN")
         }
     }
     lintOptions {
